@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class Cell {
+public class Cell : MonoBehaviour {
 	private int status;
 	private int xNbr,yNbr,zNbr;
 	
@@ -10,7 +10,7 @@ public class Cell {
 		this.xNbr = xNbr;
 		this.yNbr = yNbr;
 		this.zNbr = zNbr;
-		this.position = Vector3.right*(xNbr*cellLength + cellLength/2f) + Vector3.up*(yNbr*cellLength + cellLength/2) + Vector3.forward*(zNbr*cellLength + cellLength/2);
+		this.transform.position = Vector3.right*(xNbr*cellLength + cellLength/2f) + Vector3.up*(yNbr*cellLength + cellLength/2) + Vector3.forward*(zNbr*cellLength + cellLength/2);
 	}
 	
 	public int getStatus(){

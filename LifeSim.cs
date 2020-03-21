@@ -12,6 +12,8 @@ public class LifeSim : MonoBehaviour {
 	private Cell[][][] cellGrid;
 	public int[][][] nextStatusGrid; 
 	
+	private int step = 0;
+	public int stepInterval = 100;
 	private float timer;
 	public float pauseDuration;
 	
@@ -24,6 +26,23 @@ public class LifeSim : MonoBehaviour {
 		// Init rule array (26x2)
 		int[] r = new int[2] { DEAD, DEAD };
 		rule = new int[][] { r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r };
+		
+		// Init cellGrid
+		
+	}
+	
+	public void Update(){
+		// Update step (quick&dirty way)
+		step++;
+		if (step % stepInterval == 0) {
+			// Update cellGrid array
+			Debug.Log("Bip " + step);
+			
+			
+			
+			
+			
+		}
 	}
 	
 	private void translateRule(){ //Transforme la chaine ruleKey en une rule utilisable
