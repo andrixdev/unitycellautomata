@@ -16,8 +16,8 @@ public class LifeSim : MonoBehaviour {
 	public float pauseDuration;
 	
 	//Test key : 1 097 364 208 640
-	public Int64 ruleKey;
-	private Int64 oldRuleKey = 0;
+	public int ruleKey;
+	private int oldRuleKey = 0;
 	private int[][] rule;
 	
 	public void Start(){
