@@ -18,7 +18,13 @@ public class LifeSim : MonoBehaviour {
 	//Test key : 1 097 364 208 640
 	public Int64 ruleKey;
 	private Int64 oldRuleKey = 0;
-	private int[26][2] rule;
+	private int[][] rule;
+	
+	public void Start(){
+		// Init rule array (26x2)
+		int[] r = new int[2] { DEAD, DEAD };
+		rule = new int[][] { r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r };
+	}
 	
 	private void translateRule(){ //Transforme la chaine ruleKey en une rule utilisable
 		//Il y a 26*2 cas (de 0 à 26 voisins vivants, selon son propre status) qui doivent être couverts par une règle
