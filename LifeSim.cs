@@ -1,16 +1,16 @@
 using UnityEngine;
 using System.Collections;
 
-#define DEAD 0
-#define ALIVE 1
-
 public class LifeSim : MonoBehaviour {
+	private int DEAD = 0;
+	private int ALIVE = 1;
+	
 	public readonly int nbrOfCells;
 	public float cellLength;
 	public bool torusShape;
 	
-	private Cell cellGrid[][][];
-	public int nextStatusGrid[][][]; 
+	private Cell[][][] cellGrid;
+	public int[][][] nextStatusGrid; 
 	
 	private float timer;
 	public float pauseDuration;
@@ -37,9 +37,9 @@ public class LifeSim : MonoBehaviour {
 	
 	private int countNeighbours(int x, int y, int z){ //Compte le nombre de voisins vivants
 		int key = 0;
-		for(int = -1,i<=1,i++){
-			for(int j = -1,j<=1;j++){
-				for(int k = -1,k<=1,k++){
+		for(int i = -1;i<=1;i++){
+			for(int j = -1;j<=1;j++){
+				for(int k = -1;k<=1;k++){
 					if (this.torusShape){
 						if (!(i==0 && j==0 && k==0)){ //Plusieurs opérations modulo pour assurer un résultat positif
 							key += this.cellGrid[((x+i)%this.nbrOfCells+this.nbrOfCells)%nbrOfCells][((y+j)%this.nbrOfCells+this.nbrOfCells)%nbrOfCells][((z+k)%this.nbrOfCells+this.nbrOfCells)%nbrOfCells].getStatus();
@@ -71,7 +71,7 @@ public class LifeSim : MonoBehaviour {
 		for(int x = 0;x<this.nbrOfCells;x++){
 			for(int y = 0;y<this.nbrOfCells;y++){
 				for(int z = 0;z<this.nbrOfCells;z++){
-					this.cellGris[x][y][z].changeStatus(nextStatusGrid[x][y][z]);
+					this.cellGrid[x][y][z].changeStatus(nextStatusGrid[x][y][z]);
 				}
 			}
 		}
@@ -79,12 +79,11 @@ public class LifeSim : MonoBehaviour {
 	
 }
 
-class Cell : GameObject {
+class Cell {
 	private int status;
 	private int xNbr,yNbr,zNbr;
 	
 	//Accesseurs et mutateurs
-	
 	public Cell(int xNbr, int yNbr, int zNbr, float cellLength){
 		:base();
 		this.xNbr = xNbr;
