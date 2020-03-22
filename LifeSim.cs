@@ -29,9 +29,9 @@ public class LifeSim : MonoBehaviour
 
 	public void Start()
 	{
-		// Init rule array (26x2)
+		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities right?
 		int[] r = new int[] { DEAD, DEAD };
-		this.rule = new int[][] { r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r };
+		this.rule = new int[][] { r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r }; // 27 values
 
 		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
@@ -44,7 +44,7 @@ public class LifeSim : MonoBehaviour
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
 					// Cell random initial status
-					int initCellStatus = UnityEngine.Random.value < 0.8 ? DEAD : ALIVE;
+					int initCellStatus = UnityEngine.Random.value < 0.95 ? DEAD : ALIVE;
 					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus);
 					
 					// Next status grid initial value
@@ -65,7 +65,7 @@ public class LifeSim : MonoBehaviour
 			// Update cellGrid array
 			this.nextStep();
 			int midIndex = this.nbrOfCells / 2;
-			Debug.Log(this.nextStatusGrid[midIndex, midIndex, midIndex]);
+			Debug.Log(this.nextStatusGrid[midIndex-2, midIndex+2, midIndex-3]);
 		}
 	}
 
@@ -76,7 +76,7 @@ public class LifeSim : MonoBehaviour
 	  // Il faut donc 52 bits pour encoder une règle
 
 		//Initialisation du tableau :
-		for(int i = 0; i < 26; i++)
+		for(int i = 0; i < 27; i++)
         {
 			this.rule[i][0] = DEAD;
 			this.rule[i][1] = DEAD;
@@ -238,8 +238,8 @@ public class LifeSim : MonoBehaviour
                     {
 						int a = this.cellGrid[x,y,z].getStatus();
 						int b = this.countMooreNeighbours(x, y, z);
-						Debug.Log("A value (should 0 or 1) -> " + a);
-						Debug.Log("B value (should 0 < 25) -> " + b);
+						//Debug.Log("A value (should 0 or 1) -> " + a);
+						//Debug.Log("B value (should 0 <= 26) -> " + b);
 						int c = this.rule[b][a];
 						this.nextStatusGrid[x,y,z] = c;
 					}
