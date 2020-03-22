@@ -33,17 +33,22 @@ public class LifeSim : MonoBehaviour
 		int[] r = new int[] { DEAD, DEAD };
 		this.rule = new int[][] { r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r };
 
-		// Init cellGrid
+		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
+		this.nextStatusGrid = new int[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
+		
 		for(int i = 0; i < this.nbrOfCells; i++)
         {
 			for(int j = 0; j < this.nbrOfCells; j++)
             {
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
-					// Random initial status
-					int cellStatus = UnityEngine.Random.value < 0.5 ? DEAD : ALIVE;
-					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, cellStatus);
+					// Cell random initial status
+					int initCellStatus = UnityEngine.Random.value < 0.5 ? DEAD : ALIVE;
+					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus);
+					
+					// Next status grid initial value
+					this.nextStatusGrid[i,j,k] = initCellStatus;
                 }
             }
         }
