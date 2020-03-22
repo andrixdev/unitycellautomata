@@ -22,7 +22,7 @@ public class LifeSim : MonoBehaviour
 	private float timer;
 	public float pauseDuration;
 
-	public string ruleKey;
+	public string ruleKey = "9-20/5-7,12-13,15-16/5/M";
 	private int oldRuleKey = 0;
 	private int neighbour;
 	private int[][] rule;
