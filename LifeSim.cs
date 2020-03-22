@@ -18,7 +18,7 @@ public class LifeSim : MonoBehaviour
 	public int[,,] nextStatusGrid;
 
 	private int step = 0;
-	public int stepInterval = 100;
+	public int stepInterval = 20;
 	private float timer;
 	public float pauseDuration;
 
@@ -44,7 +44,7 @@ public class LifeSim : MonoBehaviour
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
 					// Cell random initial status
-					int initCellStatus = UnityEngine.Random.value < 0.5 ? DEAD : ALIVE;
+					int initCellStatus = UnityEngine.Random.value < 0.8 ? DEAD : ALIVE;
 					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus);
 					
 					// Next status grid initial value
@@ -54,7 +54,6 @@ public class LifeSim : MonoBehaviour
         }
 
 		this.translateRule();
-
 	}
 
 	public void Update()
@@ -64,8 +63,9 @@ public class LifeSim : MonoBehaviour
 		if (step % stepInterval == 0)
 		{
 			// Update cellGrid array
-			Debug.Log("Bip " + step);
 			this.nextStep();
+			int midIndex = this.nbrOfCells / 2;
+			Debug.Log(this.nextStatusGrid[midIndex, midIndex, midIndex]);
 		}
 	}
 
@@ -236,7 +236,12 @@ public class LifeSim : MonoBehaviour
 				{
 					if (this.neighbour == Moore)
                     {
-						this.nextStatusGrid[x,y,z] = this.rule[this.countMooreNeighbours(x, y, z)][this.cellGrid[x,y,z].getStatus()];
+						int a = this.cellGrid[x,y,z].getStatus();
+						int b = this.countMooreNeighbours(x, y, z);
+						Debug.Log("A value (should 0 or 1) -> " + a);
+						Debug.Log("B value (should 0 < 25) -> " + b);
+						int c = this.rule[b][a];
+						this.nextStatusGrid[x,y,z] = c;
 					}
 					else if (this.neighbour == VNeumann)
                     {
