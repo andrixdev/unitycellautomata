@@ -10,7 +10,7 @@ public class LifeSim : MonoBehaviour
 	private const int Moore = 0;
 	private const int VNeumann = 1;
 
-	public readonly int nbrOfCells;
+	public readonly int nbrOfCells = 20;
 	public float cellLength;
 	public bool torusShape;
 
@@ -23,7 +23,7 @@ public class LifeSim : MonoBehaviour
 	public float pauseDuration;
 
 	public string ruleKey = "9-20/5-7,12-13,15-16/5/M";
-	private int oldRuleKey = 0;
+	private string oldRuleKey;
 	private int neighbour;
 	private int[][] rule;
 
@@ -41,7 +41,9 @@ public class LifeSim : MonoBehaviour
             {
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
-					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength);
+					// Random initial status
+					int cellStatus = UnityEngine.Random.value < 0.5 ? DEAD : ALIVE;
+					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, cellStatus);
                 }
             }
         }
@@ -84,7 +86,7 @@ public class LifeSim : MonoBehaviour
 		string[] aRange;
 		int a, b;
 
-		for(int i = 0;i<sustains.Length;i++)
+		for(int i = 0; i < sustains.Length; i++)
         {
 			if (sustains[i].Contains("-"))
             {
