@@ -73,7 +73,7 @@ public class LifeSim : MonoBehaviour
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
 					// Cell random initial status
-					int initCellStatus = UnityEngine.Random.value < 0.95 ? DEAD : ALIVE;
+					int initCellStatus = UnityEngine.Random.value < 0.9 ? DEAD : ALIVE;
 					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus);
 					
 					// Next status grid initial value
@@ -116,10 +116,13 @@ public class LifeSim : MonoBehaviour
 					int[] indexes = new int[2];
 					indexes[0] = x + nbrOfCells * y;
 					indexes[1] = z;
-					positionTexture.SetPixel(indexes[0], indexes[1], new Color(newCellStatus, 0, 0, 0));
+					statusTexture.SetPixel(indexes[0], indexes[1], new Color(newCellStatus, 0, 0, 0));
 				}
 			}
 		}
+		
+		// Update textures
+		statusTexture.Apply();
 	}
 	
 	private void translateRule()
@@ -317,19 +320,21 @@ public class LifeSim : MonoBehaviour
 		// Single loop to inject data array values in textures in one shot
 		float r = 1.0f / (size - 1.0f);
         for (int x = 0; x < size; x++) {
-			for (int z = 0; z < size; z++) {
-				int index = x + (z * size);
-				
-				// Shape color information for textures1
-				// Position
-				Color c1 = new Color(x * r, 0, r * z, 0);
-				
-				// Status (all deded)
-				int status = 0;
-				Color c2 = new Color(status, 0, 0, 0);// Just to keep in mind that we store status in Color.r component
-				
-				posColorArray[index] = c1;
-				statusColorArray[index] = c2;
+			for (int y = 0; y < size; y++) {
+				for (int z = 0; z < size; z++) {
+					int index = z + y * size + x * size * size;
+					
+					// Shape color information for textures1
+					// Position
+					Color c1 = new Color(r * x, r * y, r * z, 0);
+					
+					// Status (all deded)
+					int status = 1;
+					Color c2 = new Color(status, 0, 0, 0);// Just to keep in mind that we store status in Color.r component
+					
+					posColorArray[index] = c1;
+					statusColorArray[index] = c2;
+				}
 			}
         }
 		
