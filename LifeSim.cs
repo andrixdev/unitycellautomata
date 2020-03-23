@@ -1,9 +1,12 @@
-using UnityEngine;
 using System;
 using System.Collections;
+using UnityEngine;
+using UnityEngine.Experimental.VFX;
 
+// Note: GameObject with this script needs to also have a VisualEffect component
 public class LifeSim : MonoBehaviour
 {
+	// Cell Automata mechanics concerns
 	private const int DEAD = 0;
 	private const int ALIVE = 1;
 
@@ -26,8 +29,34 @@ public class LifeSim : MonoBehaviour
 	private string oldRuleKey;
 	private int neighbour;
 	private int[][] rule;
-
+	
+	// Visualization concerns
+	private Texture2D positionTexture; // Texture to store positions
+    private Texture2D statusTexture; // Texture to store statuses
+	private VisualEffect VFX;
+	
+	// MonoBehaviour Start() called once
 	public void Start()
+	{
+		this.StartAutomaton();
+		this.StartVisualsInjection();
+	}
+	
+	// MonoBehaviour Update() called each frame
+	public void Update()
+	{
+		// Update step (quick&dirty way)
+		step++;
+		if (step % stepInterval == 0)
+		{
+			// Update cellGrid array
+			this.nextStep();
+			int midIndex = this.nbrOfCells / 2;
+			Debug.Log(this.nextStatusGrid[midIndex-2, midIndex+2, midIndex-3]);
+		}
+	}
+	
+	public void StartAutomaton()
 	{
 		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities right?
 		int[] r = new int[] { DEAD, DEAD };
@@ -55,20 +84,44 @@ public class LifeSim : MonoBehaviour
 
 		this.translateRule();
 	}
-
-	public void Update()
+	
+	public void StartVisualsInjection()
 	{
-		// Update step (quick&dirty way)
-		step++;
-		if (step % stepInterval == 0)
-		{
-			// Update cellGrid array
-			this.nextStep();
-			int midIndex = this.nbrOfCells / 2;
-			Debug.Log(this.nextStatusGrid[midIndex-2, midIndex+2, midIndex-3]);
-		}
+		// Build le textures
+        CreateTextures(nbrOfCells);
+		
+		// Feed le VFX
+		VFX = (VisualEffect) GetComponent<VisualEffect>();
+		VFX.SetTexture("PositionTexture", positionTexture);
+		VFX.SetTexture("StatusTexture", statusTexture);
 	}
 
+	// Update both data grid and textures (visuals)
+	private void nextStep()
+	{
+		this.buildNextGrid();
+		
+		for (int x = 0; x < this.nbrOfCells; x++)
+		{
+			for (int y = 0; y < this.nbrOfCells; y++)
+			{
+				for (int z = 0; z < this.nbrOfCells; z++)
+				{
+					int newCellStatus = this.nextStatusGrid[x,y,z];
+					
+					// Update automaton status
+					this.cellGrid[x,y,z].changeStatus(newCellStatus);
+					
+					// Update status texture (visuals)
+					int[] indexes = new int[2];
+					indexes[0] = x + nbrOfCells * y;
+					indexes[1] = z;
+					positionTexture.SetPixel(indexes[0], indexes[1], new Color(newCellStatus, 0, 0, 0));
+				}
+			}
+		}
+	}
+	
 	private void translateRule()
 	{ // Transforme la chaine ruleKey en une rule utilisable
 	  // Il y a 26*2 cas (de 0 à 26 voisins vivants, selon son propre status) qui doivent être couverts par une règle au pire
@@ -252,19 +305,39 @@ public class LifeSim : MonoBehaviour
 		}
 	}
 
-	private void nextStep()
+	// Create first Color texture with Positions (XYZ) and other textures with any variables
+	void CreateTextures(int size)
 	{
-		this.buildNextGrid();
-		for (int x = 0; x < this.nbrOfCells; x++)
-		{
-			for (int y = 0; y < this.nbrOfCells; y++)
-			{
-				for (int z = 0; z < this.nbrOfCells; z++)
-				{
-					this.cellGrid[x,y,z].changeStatus(this.nextStatusGrid[x,y,z]);
-				}
+		Color[] posColorArray = new Color[size * size * size];
+		Color[] statusColorArray = new Color[size * size * size];
+		
+		positionTexture = new Texture2D(size * size, size, TextureFormat.RGBAFloat, true);
+		statusTexture = new Texture2D(size * size, size, TextureFormat.RGBAFloat, true);
+		
+		// Single loop to inject data array values in textures in one shot
+		float r = 1.0f / (size - 1.0f);
+        for (int x = 0; x < size; x++) {
+			for (int z = 0; z < size; z++) {
+				int index = x + (z * size);
+				
+				// Shape color information for textures1
+				// Position
+				Color c1 = new Color(x * r, 0, r * z, 0);
+				
+				// Status (all deded)
+				int status = 0;
+				Color c2 = new Color(status, 0, 0, 0);// Just to keep in mind that we store status in Color.r component
+				
+				posColorArray[index] = c1;
+				statusColorArray[index] = c2;
 			}
-		}
+        }
+		
+		// Inject in textures
+		positionTexture.SetPixels(posColorArray);
+		statusTexture.SetPixels(statusColorArray);
+		positionTexture.Apply();
+		statusTexture.Apply();
 	}
-
+	
 }
