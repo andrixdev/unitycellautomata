@@ -1,11 +1,6 @@
-Inflate.cs
-Inflate.cs.meta
-Inflate.cs.meta
-LookAt.cs
-LookAt.cs.meta
-OneBody.cs
-OneBody.cs.meta
-OnePouit.cs
-OnePouit.cs.meta
-SimpleCameraController.cs
-SimpleCameraController.cs.meta
+*
+
+!.gitignore
+!./Scripts/Cell.cs
+!./Scripts/LifeSim.cs
+!./VFX/CellAutomata.vfx
