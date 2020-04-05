@@ -1,6 +1,7 @@
 *
-
+*/*
 !.gitignore
-!./Scripts/Cell.cs
-!./Scripts/LifeSim.cs
-!./VFX/CellAutomata.vfx
+
+!Scripts/Cell.cs
+!Scripts/LifeSim.cs
+!VFX/CellAutomata.vfx
