@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.VFX;
+using UnityEngine.VFX;
 
 // Note: GameObject with this script needs to also have a VisualEffect component
 public class LifeSim : MonoBehaviour
@@ -40,6 +42,7 @@ public class LifeSim : MonoBehaviour
 	{
 		this.StartAutomaton();
 		this.StartVisualsInjection();
+		UnityEngine.Debug.Log(this.ruleKey);
 	}
 	
 	// MonoBehaviour Update() called each frame
@@ -51,16 +54,18 @@ public class LifeSim : MonoBehaviour
 		{
 			// Update cellGrid array
 			this.nextStep();
-			int midIndex = this.nbrOfCells / 2;
-			Debug.Log(this.nextStatusGrid[midIndex-2, midIndex+2, midIndex-3]);
+			UnityEngine.Debug.Log(this.nextStatusGrid[this.nbrOfCells/2-2, this.nbrOfCells/2+2, this.nbrOfCells/2-3]);
 		}
 	}
 	
 	public void StartAutomaton()
 	{
 		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities right?
-		int[] r = new int[] { DEAD, DEAD };
-		this.rule = new int[][] { r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r }; // 27 values
+		this.rule = new int[27][] ; // 27 values
+		for(int i = 0; i < 27; i++)
+        {
+			this.rule[i] = new int[2];
+        }
 
 		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
@@ -87,7 +92,7 @@ public class LifeSim : MonoBehaviour
 	
 	public void StartVisualsInjection()
 	{
-		// Build le textures
+		// Build textures
         CreateTextures(nbrOfCells);
 		
 		// Feed le VFX
@@ -127,9 +132,8 @@ public class LifeSim : MonoBehaviour
 	
 	private void translateRule()
 	{ // Transforme la chaine ruleKey en une rule utilisable
-	  // Il y a 26*2 cas (de 0 à 26 voisins vivants, selon son propre status) qui doivent être couverts par une règle au pire
+	  // Il y a 27*2 cas (de 0 à 27 voisins vivants, selon son propre status) qui doivent être couverts par une règle au pire
 	  // (Il y a plus de voisins dans un voisinage de Moore que dans un voisinage de Von Neumann)
-	  // Il faut donc 52 bits pour encoder une règle
 
 		//Initialisation du tableau :
 		for(int i = 0; i < 27; i++)
@@ -149,11 +153,13 @@ public class LifeSim : MonoBehaviour
 
 		for(int i = 0; i < sustains.Length; i++)
         {
+			
 			if (sustains[i].Contains("-"))
             {
 				aRange = sustains[i].Split('-');
 				a = Int32.Parse(aRange[0]);
 				b = Int32.Parse(aRange[1]);
+			
 				for(int j = a; j <= b; j++)
                 {
 					this.rule[j][1] = ALIVE;
@@ -166,7 +172,7 @@ public class LifeSim : MonoBehaviour
             }
         }
 
-		for(int i = 0; i < births.Length; i++)
+		for (int i = 0; i < births.Length; i++)
 		{
 			if (births[i].Contains("-"))
 			{
@@ -180,19 +186,19 @@ public class LifeSim : MonoBehaviour
 			}
 			else
 			{
-				a = Int32.Parse(sustains[i]);
+				a = Int32.Parse(births[i]);
 				this.rule[a][0] = ALIVE;
 			}
 		}
 
-		for(int i = 0; i < overpops.Length; i++)
+		for (int i = 0; i < overpops.Length; i++)
         {
 			if (overpops[i].Contains("-"))
             {
 				aRange = overpops[i].Split('-');
 				a = Int32.Parse(aRange[0]);
 				b = Int32.Parse(aRange[1]);
-				for (int j = 0; j <= b; j++)
+				for (int j = a; j <= b; j++)
                 {
 					this.rule[j][1] = DEAD;
                 }
@@ -203,7 +209,7 @@ public class LifeSim : MonoBehaviour
 				this.rule[a][1] = DEAD;
             }
         }
-		
+
 		if (neighbourKind.Equals("M"))
         {
 			this.neighbour = Moore;
@@ -216,6 +222,7 @@ public class LifeSim : MonoBehaviour
         {
 			throw new System.ArgumentException(neighbourKind + " est inconnu");
         }
+
 		return;
 	}
 
@@ -294,14 +301,34 @@ public class LifeSim : MonoBehaviour
                     {
 						int a = this.cellGrid[x,y,z].getStatus();
 						int b = this.countMooreNeighbours(x, y, z);
-						//Debug.Log("A value (should 0 or 1) -> " + a);
-						//Debug.Log("B value (should 0 <= 26) -> " + b);
 						int c = this.rule[b][a];
+
+						if (c == ALIVE)
+                        {
+							this.cellGrid[x, y, z].incrLifespan();
+                        }else if (c == DEAD)
+                        {
+							this.cellGrid[x, y, z].resetLifespan();
+                        }
+
 						this.nextStatusGrid[x,y,z] = c;
 					}
 					else if (this.neighbour == VNeumann)
                     {
-						this.nextStatusGrid[x,y,z] = this.rule[this.countVonNeumannNeighbours(x, y, z)][this.cellGrid[x,y,z].getStatus()];
+						int a = this.cellGrid[x, y, z].getStatus();
+						int b = this.countVonNeumannNeighbours(x, y, z);
+						int c = this.rule[b][a];
+
+						if (c == ALIVE)
+						{
+							this.cellGrid[x, y, z].incrLifespan();
+						}
+						else if (c == DEAD)
+						{
+							this.cellGrid[x, y, z].resetLifespan();
+						}
+
+						this.nextStatusGrid[x,y,z] = c;
 					}
 				}
 			}
