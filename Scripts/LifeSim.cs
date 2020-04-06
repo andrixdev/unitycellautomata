@@ -3,7 +3,7 @@ using System.Collections;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.VFX;
-using UnityEngine.VFX;
+//using UnityEngine.VFX;
 
 // Note: GameObject with this script needs to also have a VisualEffect component
 public class LifeSim : MonoBehaviour
@@ -15,8 +15,8 @@ public class LifeSim : MonoBehaviour
 	private const int Moore = 0;
 	private const int VNeumann = 1;
 
-	public readonly int nbrOfCells = 20;
-	public float cellLength;
+	public int nbrOfCells = 20;
+	private float cellLength = 1.0f;// Not used atm
 	public bool torusShape;
 
 	private Cell[,,] cellGrid;
@@ -78,7 +78,7 @@ public class LifeSim : MonoBehaviour
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
 					// Cell random initial status
-					int initCellStatus = UnityEngine.Random.value < 0.9 ? DEAD : ALIVE;
+					int initCellStatus = UnityEngine.Random.value < 0.95 ? DEAD : ALIVE;
 					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus);
 					
 					// Next status grid initial value
@@ -117,11 +117,13 @@ public class LifeSim : MonoBehaviour
 					// Update automaton status
 					this.cellGrid[x,y,z].changeStatus(newCellStatus);
 					
-					// Update status texture (visuals)
+					// Update status texture (visuals) and lifespan
+					int newCellLifespan = this.cellGrid[x,y,z].getLifespan();
+					
 					int[] indexes = new int[2];
 					indexes[0] = x + nbrOfCells * y;
 					indexes[1] = z;
-					statusTexture.SetPixel(indexes[0], indexes[1], new Color(newCellStatus, 0, 0, 0));
+					statusTexture.SetPixel(indexes[0], indexes[1], new Color(newCellStatus, newCellLifespan, 0, 0));
 				}
 			}
 		}
@@ -356,8 +358,11 @@ public class LifeSim : MonoBehaviour
 					Color c1 = new Color(r * x, r * y, r * z, 0);
 					
 					// Status (all deded)
-					int status = 1;
-					Color c2 = new Color(status, 0, 0, 0);// Just to keep in mind that we store status in Color.r component
+					int status = 0;
+					int lifespan = 0;
+					// Just to keep in mind that we store status in Color.r component
+					// And lifespan in Color.g
+					Color c2 = new Color(status, lifespan, 0, 0);
 					
 					posColorArray[index] = c1;
 					statusColorArray[index] = c2;
