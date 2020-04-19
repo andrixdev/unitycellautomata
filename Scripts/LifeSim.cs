@@ -1,37 +1,49 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.VFX;
-//using UnityEngine.VFX;
+using UnityEngine.VFX;
 
 // Note: GameObject with this script needs to also have a VisualEffect component
 public class LifeSim : MonoBehaviour
 {
 	// Cell Automata mechanics concerns
-	private const int DEAD = 0;
-	private const int ALIVE = 1;
+	private const byte DEAD = 0;
+	private const byte ALIVE = 1;
 
-	private const int Moore = 0;
-	private const int VNeumann = 1;
+	private const byte Moore = 0;
+	private const byte VNeumann = 1;
 
 	public int nbrOfCells = 20;
 	private float cellLength = 1.0f;// Not used atm
 	public bool torusShape;
 
+	// Containers
 	private Cell[,,] cellGrid;
-	public int[,,] nextStatusGrid;
+	public byte[,,] nextStatusGrid;
 
 	private int step = 0;
 	public int stepInterval = 20;
-	private float timer;
-	public float pauseDuration;
+	//private float timer;
+	//public float pauseDuration;
 
+	private int population = 0;
+
+	// Automaton parameters
 	public string ruleKey = "9-20/5-7,12-13,15-16/5/M";
 	private string oldRuleKey;
-	private int neighbour;
-	private int[][] rule;
-	
+	private byte neighbour;
+	private byte[][] rule;
+
+	public double mortality = 0.0;
+	public double spawnRate = 0.05;
+	public int lifeRange = 50;
+	public bool fillInit = false;
+	public bool centerInit = false;
+
+
 	// Visualization concerns
 	private Texture2D positionTexture; // Texture to store positions
     private Texture2D statusTexture; // Texture to store statuses
@@ -50,26 +62,33 @@ public class LifeSim : MonoBehaviour
 	{
 		// Update step (quick&dirty way)
 		step++;
+		if (!this.oldRuleKey.Equals(this.ruleKey))
+			this.translateRule();
+
 		if (step % stepInterval == 0)
 		{
 			// Update cellGrid array
 			this.nextStep();
-			UnityEngine.Debug.Log(this.nextStatusGrid[this.nbrOfCells/2-2, this.nbrOfCells/2+2, this.nbrOfCells/2-3]);
+			//UnityEngine.Debug.Log(this.nextStatusGrid[this.nbrOfCells/2-2, this.nbrOfCells/2+2, this.nbrOfCells/2-3]);
+			UnityEngine.Debug.Log(String.Format("Population : {0}\n",this.population));
 		}
 	}
 	
 	public void StartAutomaton()
 	{
 		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities right?
-		this.rule = new int[27][] ; // 27 values
+		this.rule = new byte[27][] ; // 27 values
 		for(int i = 0; i < 27; i++)
         {
-			this.rule[i] = new int[2];
+			this.rule[i] = new byte[2];
         }
+
+		Cell.lifeRange = this.lifeRange;
 
 		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
-		this.nextStatusGrid = new int[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
+		this.nextStatusGrid = new byte[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
+		byte initCellStatus;
 		
 		for(int i = 0; i < this.nbrOfCells; i++)
         {
@@ -78,8 +97,45 @@ public class LifeSim : MonoBehaviour
 				for(int k = 0; k < this.nbrOfCells; k++)
                 {
 					// Cell random initial status
-					int initCellStatus = UnityEngine.Random.value < 0.95 ? DEAD : ALIVE;
-					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus);
+					if (this.centerInit)
+                    {
+						if (i >= this.nbrOfCells/2 - 3 && i <= this.nbrOfCells/2 + 3 
+							&& j >= this.nbrOfCells / 2 - 3 && j <= this.nbrOfCells / 2 + 3 
+							&& k >= this.nbrOfCells / 2 - 3 && k <= this.nbrOfCells / 2 + 3)
+                        {
+							if (this.fillInit)
+							{
+								initCellStatus = UnityEngine.Random.value < this.spawnRate ? DEAD : ALIVE;
+							}
+
+                            else
+                            {
+								initCellStatus = UnityEngine.Random.value < this.spawnRate ? ALIVE : DEAD;
+							}
+								
+                        }
+                        else
+                        {
+							initCellStatus = DEAD;
+                        }
+                    }
+                    else
+                    {
+						if (this.fillInit)
+						{
+							initCellStatus = UnityEngine.Random.value < this.spawnRate ? DEAD : ALIVE;
+						}
+
+						else
+						{
+							initCellStatus = UnityEngine.Random.value < this.spawnRate ? ALIVE : DEAD;
+						}
+					}
+
+					if (initCellStatus == ALIVE)
+						this.population++;
+
+					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus,this.mortality);
 					
 					// Next status grid initial value
 					this.nextStatusGrid[i,j,k] = initCellStatus;
@@ -87,6 +143,7 @@ public class LifeSim : MonoBehaviour
             }
         }
 
+		this.oldRuleKey = (string) this.ruleKey.Clone();
 		this.translateRule();
 	}
 	
@@ -99,12 +156,15 @@ public class LifeSim : MonoBehaviour
 		VFX = (VisualEffect) GetComponent<VisualEffect>();
 		VFX.SetTexture("PositionTexture", positionTexture);
 		VFX.SetTexture("StatusTexture", statusTexture);
+		VFX.SetInt("LifeRange", this.lifeRange);
 	}
 
 	// Update both data grid and textures (visuals)
 	private void nextStep()
 	{
 		this.buildNextGrid();
+		int newCellLifespan;
+		byte newCellStatus;
 		
 		for (int x = 0; x < this.nbrOfCells; x++)
 		{
@@ -112,22 +172,19 @@ public class LifeSim : MonoBehaviour
 			{
 				for (int z = 0; z < this.nbrOfCells; z++)
 				{
-					int newCellStatus = this.nextStatusGrid[x,y,z];
+					newCellStatus = this.nextStatusGrid[x,y,z];
 					
 					// Update automaton status
 					this.cellGrid[x,y,z].changeStatus(newCellStatus);
 					
 					// Update status texture (visuals) and lifespan
-					int newCellLifespan = this.cellGrid[x,y,z].getLifespan();
+					newCellLifespan = this.cellGrid[x,y,z].getLifespan();
 					
-					int[] indexes = new int[2];
-					indexes[0] = x + nbrOfCells * y;
-					indexes[1] = z;
-					statusTexture.SetPixel(indexes[0], indexes[1], new Color(newCellStatus, newCellLifespan, 0, 0));
+					statusTexture.SetPixel(x + nbrOfCells * y, z, new Color(newCellStatus, newCellLifespan, 0, 0));
 				}
 			}
 		}
-		
+
 		// Update textures
 		statusTexture.Apply();
 	}
@@ -293,6 +350,8 @@ public class LifeSim : MonoBehaviour
 
 	private void buildNextGrid()
 	{
+		byte stat, res;
+		int count;
 		for (int x = 0; x < this.nbrOfCells; x++)
 		{
 			for (int y = 0; y < this.nbrOfCells; y++)
@@ -301,36 +360,43 @@ public class LifeSim : MonoBehaviour
 				{
 					if (this.neighbour == Moore)
                     {
-						int a = this.cellGrid[x,y,z].getStatus();
-						int b = this.countMooreNeighbours(x, y, z);
-						int c = this.rule[b][a];
+						stat = this.cellGrid[x,y,z].getStatus();
+						count = this.countMooreNeighbours(x, y, z);
+						res = this.rule[count][stat];
 
-						if (c == ALIVE)
+						if (res == ALIVE)
                         {
 							this.cellGrid[x, y, z].incrLifespan();
-                        }else if (c == DEAD)
+                        }
+						else if (res == DEAD)
                         {
 							this.cellGrid[x, y, z].resetLifespan();
                         }
 
-						this.nextStatusGrid[x,y,z] = c;
+						if(stat == ALIVE && res == DEAD)
+							this.population--;
+                        
+						if (stat == DEAD && res == ALIVE)
+							this.population++;
+
+						this.nextStatusGrid[x,y,z] = res;
 					}
 					else if (this.neighbour == VNeumann)
                     {
-						int a = this.cellGrid[x, y, z].getStatus();
-						int b = this.countVonNeumannNeighbours(x, y, z);
-						int c = this.rule[b][a];
+						stat = this.cellGrid[x, y, z].getStatus();
+						count = this.countVonNeumannNeighbours(x, y, z);
+						res = this.rule[count][stat];
 
-						if (c == ALIVE)
+						if (res == ALIVE)
 						{
 							this.cellGrid[x, y, z].incrLifespan();
 						}
-						else if (c == DEAD)
+						else if (res == DEAD)
 						{
 							this.cellGrid[x, y, z].resetLifespan();
 						}
 
-						this.nextStatusGrid[x,y,z] = c;
+						this.nextStatusGrid[x,y,z] = res;
 					}
 				}
 			}
@@ -345,24 +411,25 @@ public class LifeSim : MonoBehaviour
 		
 		positionTexture = new Texture2D(size * size, size, TextureFormat.RGBAFloat, true);
 		statusTexture = new Texture2D(size * size, size, TextureFormat.RGBAFloat, true);
+
+		int index;
 		
 		// Single loop to inject data array values in textures in one shot
 		float r = 1.0f / (size - 1.0f);
         for (int x = 0; x < size; x++) {
 			for (int y = 0; y < size; y++) {
 				for (int z = 0; z < size; z++) {
-					int index = z + y * size + x * size * size;
+					index = z + y * size + x * size * size;
 					
 					// Shape color information for textures1
 					// Position
 					Color c1 = new Color(r * x, r * y, r * z, 0);
 					
 					// Status (all deded)
-					int status = 0;
-					int lifespan = 0;
+					
 					// Just to keep in mind that we store status in Color.r component
 					// And lifespan in Color.g
-					Color c2 = new Color(status, lifespan, 0, 0);
+					Color c2 = new Color(DEAD, 0, 0, 0);
 					
 					posColorArray[index] = c1;
 					statusColorArray[index] = c2;
