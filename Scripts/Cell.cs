@@ -8,10 +8,11 @@ class Cell
 	private int xNbr, yNbr, zNbr;
 	private int lifespan;
 	private double mortality;
+	private double natality;
 	public readonly double cellLength;
 
 	//Accesseurs et mutateurs
-	public Cell(int xNbr, int yNbr, int zNbr, double cellLength, byte status, double mortality)
+	public Cell(int xNbr, int yNbr, int zNbr, double cellLength, byte status, double mortality, double natality)
 	{
 		this.xNbr = xNbr;
 		this.yNbr = yNbr;
@@ -19,6 +20,7 @@ class Cell
 		this.status = status;
 		this.lifespan = 0;
 		this.mortality = mortality;
+		this.natality = natality;
 		this.cellLength = cellLength;
 		//this.transform.position = Vector3.right*(xNbr*cellLength + cellLength/2f) + Vector3.up*(yNbr*cellLength + cellLength/2) + Vector3.forward*(zNbr*cellLength + cellLength/2);
 	}
@@ -30,9 +32,26 @@ class Cell
 
 	public void changeStatus(byte new_status)
 	{
+		byte past_status = this.status;
 		this.status = new_status;
+
 		if (new_status > 0 && UnityEngine.Random.value < this.mortality)
 			this.status = 0;
+		if (new_status == 0 && UnityEngine.Random.value < this.natality)
+			this.status = 1;
+
+		if(past_status == 0 && this.status > 0)
+        {
+			this.resetLifespan();
+        }
+		else if(past_status > 0 && this.status == 0)
+        {
+			this.resetLifespan();
+        }
+		else if(past_status > 0 && this.status > 0)
+        {
+			this.incrLifespan();
+        }
 	}
 
 	public int getLifespan()
@@ -54,7 +73,7 @@ class Cell
 	
 	public Cell Clone()
 	{
-		return new Cell(this.xNbr,this.yNbr,this.zNbr,this.cellLength,this.status,this.mortality);
+		return new Cell(this.xNbr,this.yNbr,this.zNbr,this.cellLength,this.status,this.mortality,this.natality);
 	}
 
 }

@@ -38,6 +38,7 @@ public class LifeSim : MonoBehaviour
 	private byte[][] rule;
 
 	public double mortality = 0.0;
+	public double natality = 0.0;
 	public double spawnRate = 0.05;
 	public int lifeRange = 50;
 	public bool fillInit = false;
@@ -135,7 +136,7 @@ public class LifeSim : MonoBehaviour
 					if (initCellStatus == ALIVE)
 						this.population++;
 
-					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus,this.mortality);
+					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus,this.mortality,this.natality);
 					
 					// Next status grid initial value
 					this.nextStatusGrid[i,j,k] = initCellStatus;
@@ -165,6 +166,7 @@ public class LifeSim : MonoBehaviour
 		this.buildNextGrid();
 		int newCellLifespan;
 		byte newCellStatus;
+		byte pastCellStatus;
 		
 		for (int x = 0; x < this.nbrOfCells; x++)
 		{
@@ -173,9 +175,20 @@ public class LifeSim : MonoBehaviour
 				for (int z = 0; z < this.nbrOfCells; z++)
 				{
 					newCellStatus = this.nextStatusGrid[x,y,z];
+					pastCellStatus = this.cellGrid[x, y, z].getStatus();
 					
 					// Update automaton status
 					this.cellGrid[x,y,z].changeStatus(newCellStatus);
+					newCellStatus = this.cellGrid[x, y, z].getStatus();
+
+					if(pastCellStatus == ALIVE && newCellStatus == DEAD)
+                    {
+						this.population--;
+                    }
+					else if(pastCellStatus == DEAD && newCellStatus == ALIVE)
+                    {
+						this.population++;
+                    }
 					
 					// Update status texture (visuals) and lifespan
 					newCellLifespan = this.cellGrid[x,y,z].getLifespan();
@@ -358,46 +371,22 @@ public class LifeSim : MonoBehaviour
 			{
 				for (int z = 0; z < this.nbrOfCells; z++)
 				{
+					stat = this.cellGrid[x, y, z].getStatus();
 					if (this.neighbour == Moore)
                     {
-						stat = this.cellGrid[x,y,z].getStatus();
 						count = this.countMooreNeighbours(x, y, z);
-						res = this.rule[count][stat];
-
-						if (res == ALIVE)
-                        {
-							this.cellGrid[x, y, z].incrLifespan();
-                        }
-						else if (res == DEAD)
-                        {
-							this.cellGrid[x, y, z].resetLifespan();
-                        }
-
-						if(stat == ALIVE && res == DEAD)
-							this.population--;
-                        
-						if (stat == DEAD && res == ALIVE)
-							this.population++;
-
-						this.nextStatusGrid[x,y,z] = res;
 					}
 					else if (this.neighbour == VNeumann)
                     {
-						stat = this.cellGrid[x, y, z].getStatus();
 						count = this.countVonNeumannNeighbours(x, y, z);
-						res = this.rule[count][stat];
+                    }
+                    else
+                    {
+						count = 0;
+                    }
+					res = this.rule[count][stat];
 
-						if (res == ALIVE)
-						{
-							this.cellGrid[x, y, z].incrLifespan();
-						}
-						else if (res == DEAD)
-						{
-							this.cellGrid[x, y, z].resetLifespan();
-						}
-
-						this.nextStatusGrid[x,y,z] = res;
-					}
+					this.nextStatusGrid[x, y, z] = res;
 				}
 			}
 		}
