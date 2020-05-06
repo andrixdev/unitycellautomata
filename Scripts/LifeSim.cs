@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.VFX;
-using UnityEngine.VFX;
+//using UnityEngine.VFX;
 
 // Note: GameObject with this script needs to also have a VisualEffect component
 public class LifeSim : MonoBehaviour
@@ -44,11 +44,14 @@ public class LifeSim : MonoBehaviour
 	public bool fillInit = false;
 	public bool centerInit = false;
 
-
 	// Visualization concerns
 	private Texture2D positionTexture; // Texture to store positions
     private Texture2D statusTexture; // Texture to store statuses
 	private VisualEffect VFX;
+	
+	// Interaction with outter world
+	public Transform interactor;
+	public float visualScale = 5;
 	
 	// MonoBehaviour Start() called once
 	public void Start()
@@ -71,15 +74,17 @@ public class LifeSim : MonoBehaviour
 			// Update cellGrid array
 			this.nextStep();
 			//UnityEngine.Debug.Log(this.nextStatusGrid[this.nbrOfCells/2-2, this.nbrOfCells/2+2, this.nbrOfCells/2-3]);
-			UnityEngine.Debug.Log(String.Format("Population : {0}\n",this.population));
+			//UnityEngine.Debug.Log(String.Format("Population : {0}\n",this.population));
 		}
+		
+		this.UpdatesForEachFrame();
 	}
 	
 	public void StartAutomaton()
 	{
 		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities right?
-		this.rule = new byte[27][] ; // 27 values
-		for(int i = 0; i < 27; i++)
+		this.rule = new byte[27][]; // 27 values
+		for (int i = 0; i < 27; i++)
         {
 			this.rule[i] = new byte[2];
         }
@@ -91,11 +96,11 @@ public class LifeSim : MonoBehaviour
 		this.nextStatusGrid = new byte[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
 		byte initCellStatus;
 		
-		for(int i = 0; i < this.nbrOfCells; i++)
+		for (int i = 0; i < this.nbrOfCells; i++)
         {
-			for(int j = 0; j < this.nbrOfCells; j++)
+			for (int j = 0; j < this.nbrOfCells; j++)
             {
-				for(int k = 0; k < this.nbrOfCells; k++)
+				for (int k = 0; k < this.nbrOfCells; k++)
                 {
 					// Cell random initial status
 					if (this.centerInit)
@@ -160,7 +165,7 @@ public class LifeSim : MonoBehaviour
 		VFX.SetInt("LifeRange", this.lifeRange);
 	}
 
-	// Update both data grid and textures (visuals)
+	// Update data grid and textures (visuals)
 	private void nextStep()
 	{
 		this.buildNextGrid();
@@ -208,7 +213,7 @@ public class LifeSim : MonoBehaviour
 	  // (Il y a plus de voisins dans un voisinage de Moore que dans un voisinage de Von Neumann)
 
 		//Initialisation du tableau :
-		for(int i = 0; i < 27; i++)
+		for (int i = 0; i < 27; i++)
         {
 			this.rule[i][0] = DEAD;
 			this.rule[i][1] = DEAD;
@@ -365,11 +370,13 @@ public class LifeSim : MonoBehaviour
 	{
 		byte stat, res;
 		int count;
-		for (int x = 0; x < this.nbrOfCells; x++)
+		int n = this.nbrOfCells;// Alias
+		
+		for (int x = 0; x < n; x++)
 		{
-			for (int y = 0; y < this.nbrOfCells; y++)
+			for (int y = 0; y < n; y++)
 			{
-				for (int z = 0; z < this.nbrOfCells; z++)
+				for (int z = 0; z < n; z++)
 				{
 					stat = this.cellGrid[x, y, z].getStatus();
 					if (this.neighbour == Moore)
@@ -384,14 +391,81 @@ public class LifeSim : MonoBehaviour
                     {
 						count = 0;
                     }
+					
+					// Apply rule output based on that neighbour count
 					res = this.rule[count][stat];
 
 					this.nextStatusGrid[x, y, z] = res;
 				}
 			}
 		}
+		
+		// Check for injector presence within the cube volume (0.5³ offset in VFX for centered scale)
+		Vector3 localPos = 0.5f * Vector3.one + 1 / visualScale * interactor.transform.position;
+		
+		// NB: swapped coordinates
+		int xx = (int) Mathf.Floor(localPos.z * n);
+		int yy = (int) Mathf.Floor(localPos.y * n);
+		int zz = (int) Mathf.Floor(localPos.x * n);
+		
+		//UnityEngine.Debug.Log(xx);
+		//UnityEngine.Debug.Log(yy);
+		//UnityEngine.Debug.Log(zz);
+		
+		int[][] indexes = getIndexesForCubeShape(xx, yy, zz, this.nbrOfCells);
+		for (int ii = 0; ii < indexes.Length; ii++) {
+			this.nextStatusGrid[indexes[ii][0], indexes[ii][1], indexes[ii][2]] = ALIVE;
+		}
+		
 	}
 
+	private void UpdatesForEachFrame()
+	{
+		// Update visual scale for correspondance between real position and automata [0,1] coordinate system
+		// Note: there is also a position XYZ offset handled directly with a VFX Parameter Binder component on the VFX GameObject
+		VFX.SetFloat("visualScale", visualScale);
+	}
+	
+	private int[][] getIndexesForCubeShape(int x, int y, int z, int cubeSize)
+	{
+		int n = 0;// Number of valid neighbours
+		// Have to specify size of array before filling it... sucks
+		for (int a = x-1; a <= x+1; a++) {
+			for (int b = y-1; b <= y+1; b++) {
+				for (int c = z-1; c <= z+1; c++) {
+					if (isInsideCube(a, b, c, cubeSize)) n++;
+				}
+			}
+		}
+		
+		// Now init empty array
+		int[][] indexesArray = new int[n][];
+		for (int i = 0; i < n; i++) {
+			indexesArray[i] = new int[3];
+        }
+		// And do things for real
+		int m = 0; // Valid neighbour count, == current array index
+		for (int a = x-1; a <= x+1; a++) {
+			for (int b = y-1; b <= y+1; b++) {
+				for (int c = z-1; c <= z+1; c++) {
+					if (isInsideCube(a, b, c, cubeSize)) {
+						indexesArray[m][0] = a;
+						indexesArray[m][1] = b;
+						indexesArray[m][2] = c;
+						m++;
+					}
+				}
+			}
+		}
+		
+		return indexesArray;
+	}
+	
+	private bool isInsideCube(int x, int y, int z, int cubeSize)
+	{
+		return x >= 0 && x < cubeSize && y >= 0 && y < cubeSize && z >= 0 && z < cubeSize;
+	}
+	
 	// Create first Color texture with Positions (XYZ) and other textures with any variables
 	void CreateTextures(int size)
 	{
