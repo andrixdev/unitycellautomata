@@ -4,17 +4,28 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.VFX;
-//using UnityEngine.VFX;
+using UnityEngine.VFX;
+
+public enum Kinds
+{
+	BTH_A, //birth and alive
+	BTH_D, //birth and dead
+	STN_A, //sustain and alive
+	STN_D, //sustain and dead
+	DTH_A, //deathzone and alive
+	DTH_D  //deathzone and dead
+}
 
 // Note: GameObject with this script needs to also have a VisualEffect component
 public class LifeSim : MonoBehaviour
 {
 	// Cell Automata mechanics concerns
-	private const byte DEAD = 0;
-	private const byte ALIVE = 1;
 
 	private const byte Moore = 0;
 	private const byte VNeumann = 1;
+
+	private const byte DEAD = 0;
+	private const byte ALIVE = 1;
 
 	public int nbrOfCells = 20;
 	private float cellLength = 1.0f;// Not used atm
@@ -26,6 +37,7 @@ public class LifeSim : MonoBehaviour
 
 	private int step = 0;
 	public int stepInterval = 20;
+	public int popRefreshRate = 60;
 	//private float timer;
 	//public float pauseDuration;
 
@@ -36,7 +48,30 @@ public class LifeSim : MonoBehaviour
 	private string oldRuleKey;
 	private byte neighbour;
 	private byte[][] rule;
+	public int sampling = 60*60;
 
+	// Lotka-Volterra 
+	public double lambda = 3.2;
+	private int deltaPop;
+	private double pAdd, pMinus;
+
+	private int birthAlive = 0;
+	private int birthDead = 0;
+
+	private int sustainAlive = 0;
+	private int sustainDead = 0;
+
+	private int deathzoneAlive = 0;
+	private int deathzoneDead = 0;
+
+	private bool[] visited;
+
+	private List<int> samples = new List<int>();
+	private List<int> neighbourSamples = new List<int>();
+
+	private System.Random rand = new System.Random();
+
+	//Initial conditions 
 	public double mortality = 0.0;
 	public double natality = 0.0;
 	public double spawnRate = 0.05;
@@ -69,12 +104,18 @@ public class LifeSim : MonoBehaviour
 		if (!this.oldRuleKey.Equals(this.ruleKey))
 			this.translateRule();
 
+		if (step % popRefreshRate == 0)
+			this.parametersUpdate();
+
 		if (step % stepInterval == 0)
 		{
 			// Update cellGrid array
-			this.nextStep();
+			//this.nextStep();
 			//UnityEngine.Debug.Log(this.nextStatusGrid[this.nbrOfCells/2-2, this.nbrOfCells/2+2, this.nbrOfCells/2-3]);
 			//UnityEngine.Debug.Log(String.Format("Population : {0}\n",this.population));
+
+			// Probabilistic method
+			this.sampleUpdate();
 		}
 		
 		this.UpdatesForEachFrame();
@@ -90,6 +131,7 @@ public class LifeSim : MonoBehaviour
         }
 
 		Cell.lifeRange = this.lifeRange;
+		visited = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
 
 		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
@@ -151,6 +193,7 @@ public class LifeSim : MonoBehaviour
 
 		this.oldRuleKey = (string) this.ruleKey.Clone();
 		this.translateRule();
+		this.recountKinds();
 	}
 	
 	public void StartVisualsInjection()
@@ -507,4 +550,273 @@ public class LifeSim : MonoBehaviour
 		statusTexture.Apply();
 	}
 	
+	private int encode(int x, int y, int z)
+    {
+		return x + y * nbrOfCells + z * nbrOfCells * nbrOfCells;
+	}
+
+	private int[] decode(int c)
+    {
+		int[] coords = new int[3];
+		coords[0] = c % nbrOfCells;
+		coords[1] = (c % nbrOfCells * nbrOfCells - coords[0])/nbrOfCells;
+		coords[2] = (c - coords[0] - coords[1] * nbrOfCells) / (nbrOfCells * nbrOfCells);
+		return coords;
+    }
+
+	private List<int> getNeighbourhood(int x, int y, int z)
+    {
+		List<int> output = new List<int>();
+		for(int i = -1; i<= 1; i++)
+        {
+			for(int j = -1; j<=1; j++)
+            {
+				for(int k = -1; k<=1; k++)
+                {
+					output.Add(encode(
+						((x+i)%nbrOfCells+nbrOfCells)%nbrOfCells,
+						((y + j) % nbrOfCells + nbrOfCells) % nbrOfCells,
+						((z + k) % nbrOfCells + nbrOfCells) % nbrOfCells
+						));
+                }
+            }
+        }
+		return output;
+    }
+
+	private List<int> getNeighbourhood(int c)
+    {
+		int[] coords = decode(c);
+		return getNeighbourhood(coords[0], coords[1], coords[2]);
+    }
+
+	private Kinds getKind(int x, int y, int z)
+    {
+		int stat,count;
+		stat = this.cellGrid[x, y, z].getStatus();
+		if (neighbour == VNeumann)
+        {
+			count = countVonNeumannNeighbours(x, y, z);
+        }
+        else if (neighbour == Moore)
+        {
+			count = countMooreNeighbours(x, y, z);
+        }
+        else
+        {
+			count = 0;
+        }
+
+		if(rule[count][DEAD] == ALIVE)
+        {
+			if (stat == ALIVE)
+				return Kinds.BTH_A;
+			else
+				return Kinds.BTH_D;
+        }
+		else if(rule[count][ALIVE] == ALIVE)
+        {
+			if (stat == ALIVE)
+				return Kinds.STN_A;
+			else
+				return Kinds.STN_D;
+        }
+        else
+        {
+			if (stat == ALIVE)
+				return Kinds.DTH_A;
+			else
+				return Kinds.DTH_D;
+        }
+    } 
+
+	private Kinds getKind(int c)
+    {
+		int[] coords = decode(c);
+		return getKind(coords[0], coords[1], coords[2]);
+    }
+
+	private void recountKinds()
+    {
+		birthAlive = 0;
+		birthDead = 0;
+
+		sustainAlive = 0;
+		sustainDead = 0;
+
+		deathzoneAlive = 0;
+		deathzoneDead = 0;
+
+		for(int i = 0; i<= nbrOfCells; i++)
+        {
+			for(int j = 0; j<= nbrOfCells; j++)
+            {
+				for(int k = 0; k<= nbrOfCells; k++)
+                {
+					switch (getKind(i, j, k))
+                    {
+						case Kinds.BTH_A:
+							birthAlive++;
+							break;
+						case Kinds.BTH_D:
+							birthDead++;
+							break;
+						case Kinds.STN_A:
+							sustainAlive++;
+							break;
+						case Kinds.STN_D:
+							sustainDead++;
+							break;
+						case Kinds.DTH_A:
+							deathzoneAlive++;
+							break;
+						case Kinds.DTH_D:
+							deathzoneDead++;
+							break;
+						default:
+							break;
+                    }
+                }
+            }
+        }
+
+    }
+
+	private void sampleUpdate()
+    {
+		samples.Clear();
+		neighbourSamples.Clear();
+		int c;
+
+		//Sampling 
+		for (int i = 0; i < sampling; i++)
+        {
+			c = rand.Next(0, nbrOfCells * nbrOfCells * nbrOfCells);
+			samples.Add(c);
+			neighbourSamples.AddRange(getNeighbourhood(c));
+		}
+		
+		//Removing cells which are going to change neighbourhood
+		foreach (int n in neighbourSamples)
+        {
+            if (!visited[n])
+            {
+				visited[n] = true;
+				switch (getKind(n))
+                {
+					case Kinds.BTH_A:
+						birthAlive--;
+						break;
+					case Kinds.BTH_D:
+						birthDead--;
+						break;
+					case Kinds.DTH_A:
+						deathzoneAlive--;
+						break;
+					case Kinds.DTH_D:
+						deathzoneDead--;
+						break;
+					case Kinds.STN_A:
+						sustainAlive--;
+						break;
+					case Kinds.STN_D:
+						sustainDead--;
+						break;
+					default:
+						break;
+                }
+            }
+        }
+
+		//Build the next state from sample
+		List<int> tempStates = new List<int>();
+		int[] coords;
+		if(deltaPop > 0)
+        {
+			foreach(int n in samples)
+            {
+				coords = decode(n);
+				if(cellGrid[coords[0],coords[1],coords[2]].getStatus() == DEAD)
+                {
+					if (getKind(coords[0], coords[1], coords[2]) == Kinds.BTH_D)
+						tempStates.Add(UnityEngine.Random.value < pAdd ? ALIVE : DEAD);
+					else
+						tempStates.Add(UnityEngine.Random.value < 0.5 * (1 - pAdd) ? ALIVE : DEAD);
+                }
+            }
+        }
+        else
+        {
+			foreach (int n in samples)
+			{
+				coords = decode(n);
+				if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == ALIVE)
+				{
+					if (getKind(coords[0], coords[1], coords[2]) == Kinds.DTH_A)
+						tempStates.Add(UnityEngine.Random.value < pMinus ? DEAD : ALIVE);
+					else
+						tempStates.Add(UnityEngine.Random.value < 0.5 * (1 - pMinus) ? DEAD : ALIVE);
+				}
+			}
+		}
+		
+
+		//Apply the new state
+		IEnumerator<int> cellsEnum = samples.GetEnumerator();
+		IEnumerator<int> statesEnum = tempStates.GetEnumerator();
+
+		do
+		{
+			coords = decode(cellsEnum.Current);
+
+			if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == ALIVE && statesEnum.Current == DEAD)
+				population--;
+			else if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == DEAD && statesEnum.Current == ALIVE)
+				population++;
+
+			cellGrid[coords[0], coords[1], coords[2]].changeStatus((byte)statesEnum.Current);
+
+		} while (cellsEnum.MoveNext());
+
+
+		//Actualize kinds cardinals
+		foreach (int n in neighbourSamples)
+		{
+			if (visited[n])
+			{
+				visited[n] = false;
+				switch (getKind(n))
+				{
+					case Kinds.BTH_A:
+						birthAlive++;
+						break;
+					case Kinds.BTH_D:
+						birthDead++;
+						break;
+					case Kinds.DTH_A:
+						deathzoneAlive++;
+						break;
+					case Kinds.DTH_D:
+						deathzoneDead++;
+						break;
+					case Kinds.STN_A:
+						sustainAlive++;
+						break;
+					case Kinds.STN_D:
+						sustainDead++;
+						break;
+					default:
+						break;
+				}
+			}
+		}
+	}
+
+	private void parametersUpdate()
+    {
+		deltaPop =(int) (population * (lambda * (1 - population / (nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
+		pAdd = (deltaPop - 0.5 * (deathzoneDead + sustainDead)) / (birthDead - 0.5 * (deathzoneDead + sustainDead));
+		pMinus = (-deltaPop - 0.5 * (sustainAlive + birthAlive)) / (deathzoneAlive - 0.5 * (sustainAlive + birthAlive));
+    }
+
 }
