@@ -37,7 +37,7 @@ public class LifeSim : MonoBehaviour
 
 	private int step = 0;
 	public int stepInterval = 20;
-	public int popRefreshRate = 60;
+	public int popRefreshRate = 2;
 	//private float timer;
 	//public float pauseDuration;
 
@@ -48,10 +48,9 @@ public class LifeSim : MonoBehaviour
 	private string oldRuleKey;
 	private byte neighbour;
 	private byte[][] rule;
-	public int sampling = 60*60;
 
 	// Lotka-Volterra 
-	public double lambda = 3.2;
+	public double lambda = 0.2;
 	public double passiveControl = 1.2; //Always >= 1 
 	private int deltaPop;
 	private double pAdd, pMinus;
@@ -67,6 +66,7 @@ public class LifeSim : MonoBehaviour
 	private int deathzoneDead = 0;
 
 	private bool[] visited;
+	private bool[] visitedAsNeighbour;
 
 	private List<int> samples = new List<int>();
 	private List<int> neighbourSamples = new List<int>();
@@ -105,10 +105,13 @@ public class LifeSim : MonoBehaviour
 		step++;
 		if (!this.oldRuleKey.Equals(this.ruleKey))
 			this.translateRule();
-
-		if (step % popRefreshRate == 0)
+		
+		if (step % (popRefreshRate*stepInterval) == 0)
         {
+			UnityEngine.Debug.Log(String.Format("------ Step {0} -----", step));
+
 			this.parametersUpdate();
+			UnityEngine.Debug.Log(String.Format("Pop : {0}", this.population));
 			UnityEngine.Debug.Log(String.Format("Delta Pop : {0}", this.deltaPop));
 
 			UnityEngine.Debug.Log(String.Format("pAdd : {0}", this.pAdd));
@@ -122,6 +125,16 @@ public class LifeSim : MonoBehaviour
 			UnityEngine.Debug.Log(String.Format("Birth Alive : {0}", this.birthAlive));
 			UnityEngine.Debug.Log(String.Format("Sustain Alive : {0}", this.sustainAlive));
 			UnityEngine.Debug.Log(String.Format("Deathzone Alive : {0}", this.deathzoneAlive));
+
+			/*
+			UnityEngine.Debug.Log(String.Format("Sanity check (effective partition) : {0} == {1}",
+									this.birthAlive+this.birthDead+this.sustainAlive+this.sustainDead+this.deathzoneAlive+this.deathzoneDead,
+									this.nbrOfCells*this.nbrOfCells*this.nbrOfCells));
+
+			UnityEngine.Debug.Log(String.Format("Sanity check bis (population partition) : {0} == {1}",
+									this.birthAlive+this.sustainAlive+this.deathzoneAlive,
+									this.population));
+			*/
 		}
 			
 
@@ -134,7 +147,7 @@ public class LifeSim : MonoBehaviour
 
 			// Probabilistic method
 			this.sampleUpdate();
-			UnityEngine.Debug.Log(String.Format("Population : {0}", this.population));
+			//this.fullReconstruct();
 
 		}
 		this.UpdatesForEachFrame();
@@ -142,7 +155,7 @@ public class LifeSim : MonoBehaviour
 	
 	public void StartAutomaton()
 	{
-		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities right?
+		// Init rule array (27x2) -> Change to 27... we can have between 0 and 26 alive neighours, so 27 possibilities 
 		this.rule = new byte[27][]; // 27 values
 		for (int i = 0; i < 27; i++)
         {
@@ -151,6 +164,8 @@ public class LifeSim : MonoBehaviour
 
 		Cell.lifeRange = this.lifeRange;
 		visited = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
+		visitedAsNeighbour = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
+
 
 		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
@@ -538,9 +553,10 @@ public class LifeSim : MonoBehaviour
 		statusTexture = new Texture2D(size * size, size, TextureFormat.RGBAFloat, true);
 
 		int index;
-		
+
 		// Single loop to inject data array values in textures in one shot
-		float r = 1.0f / (size - 1.0f);
+		//float r = 1.0f / (size - 1.0f);
+		float r = 1.0f;
         for (int x = 0; x < size; x++) {
 			for (int y = 0; y < size; y++) {
 				for (int z = 0; z < size; z++) {
@@ -672,6 +688,8 @@ public class LifeSim : MonoBehaviour
 
 	private void recountKinds()
     {
+		population = 0;
+
 		birthAlive = 0;
 		birthDead = 0;
 
@@ -687,6 +705,9 @@ public class LifeSim : MonoBehaviour
             {
 				for(int k = 0; k< nbrOfCells; k++)
                 {
+					if (cellGrid[i, j, k].getStatus() == ALIVE)
+						population++;
+
 					switch (getKind(i, j, k))
                     {
 						case Kinds.BTH_A:
@@ -716,16 +737,41 @@ public class LifeSim : MonoBehaviour
 
     }
 
+	private void fullReconstruct()
+    {
+		recountKinds();
+		for(int i = 0; i < nbrOfCells; i++)
+        {
+			for(int j = 0; j<nbrOfCells; j++)
+            {
+				for(int k = 0; k<nbrOfCells; k++)
+                {
+					statusTexture.SetPixel(i + nbrOfCells * j, k, new Color(
+											cellGrid[i,j,k].getStatus(), 
+											cellGrid[i,j,k].getLifespan()
+											, 0, 0));
+				}
+            }
+        }
+		statusTexture.Apply();
+    }
+
 	private void sampleUpdate()
     {
 		samples.Clear();
 		neighbourSamples.Clear();
 		int c;
-
-		//Sampling 
-		for (int i = 0; i < sampling; i++)
+		int failsafe;
+		//Semi random - sampling 
+		for (int i = 0; i < nbrOfCells*nbrOfCells; i++)
         {
-			c = rand.Next(0, nbrOfCells * nbrOfCells * nbrOfCells);
+			failsafe = 0;
+			do
+			{
+				failsafe++;
+				c = rand.Next(i * nbrOfCells,  (i+1) * nbrOfCells);
+			} while (visited[c] && failsafe < nbrOfCells);
+			visited[c] = true;
 			samples.Add(c);
 			neighbourSamples.AddRange(getNeighbourhood(c));
 		}
@@ -733,9 +779,9 @@ public class LifeSim : MonoBehaviour
 		//Removing cells which are going to change neighbourhood
 		foreach (int n in neighbourSamples)
         {
-            if (!visited[n])
+            if (!visitedAsNeighbour[n])
             {
-				visited[n] = true;
+				visitedAsNeighbour[n] = true;
 				switch (getKind(n))
                 {
 					case Kinds.BTH_A:
@@ -763,7 +809,7 @@ public class LifeSim : MonoBehaviour
         }
 
 		//Build the next state from sample
-		List<int> tempStates = new List<int>();
+		List<byte> tempStates = new List<byte>();
 		int[] coords;
 		if(deltaPop > 0)
         {
@@ -772,11 +818,8 @@ public class LifeSim : MonoBehaviour
 				coords = decode(n);
 				if(cellGrid[coords[0],coords[1],coords[2]].getStatus() == DEAD)
                 {
-					if (getKind(coords[0], coords[1], coords[2]) == Kinds.BTH_D)
-						tempStates.Add(UnityEngine.Random.value < pAdd ? ALIVE : DEAD);
-					else
-						tempStates.Add(UnityEngine.Random.value < 0.5 * (1 - pAdd) ? ALIVE : DEAD);
-                }
+					tempStates.Add(UnityEngine.Random.value < pAdd ? ALIVE : DEAD);
+				}
             }
         }
         else
@@ -786,10 +829,7 @@ public class LifeSim : MonoBehaviour
 				coords = decode(n);
 				if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == ALIVE)
 				{
-					if (getKind(coords[0], coords[1], coords[2]) == Kinds.DTH_A)
-						tempStates.Add(UnityEngine.Random.value < pMinus ? DEAD : ALIVE);
-					else
-						tempStates.Add(UnityEngine.Random.value < 0.5 * (1 - pMinus) ? DEAD : ALIVE);
+					tempStates.Add(UnityEngine.Random.value < pMinus ? DEAD : ALIVE);
 				}
 			}
 		}
@@ -797,7 +837,7 @@ public class LifeSim : MonoBehaviour
 
 		//Apply the new state
 		IEnumerator<int> cellsEnum = samples.GetEnumerator();
-		IEnumerator<int> statesEnum = tempStates.GetEnumerator();
+		IEnumerator<byte> statesEnum = tempStates.GetEnumerator();
 
 		do
 		{
@@ -808,13 +848,13 @@ public class LifeSim : MonoBehaviour
 			else if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == DEAD && statesEnum.Current == ALIVE)
 				population++;
 
-			cellGrid[coords[0], coords[1], coords[2]].changeStatus((byte)statesEnum.Current);
+			cellGrid[coords[0], coords[1], coords[2]].changeStatus((statesEnum.Current));
 
 			byte newCellStatus = cellGrid[coords[0], coords[1], coords[2]].getStatus();
 			int newCellLifespan = cellGrid[coords[0], coords[1], coords[2]].getLifespan();
 
 			statusTexture.SetPixel(coords[0] + nbrOfCells * coords[1], coords[2], new Color(newCellStatus, newCellLifespan, 0, 0));
-
+			statesEnum.MoveNext();
 		} while (cellsEnum.MoveNext());
 
 		statusTexture.Apply();
@@ -822,9 +862,9 @@ public class LifeSim : MonoBehaviour
 		//Actualize kinds cardinals
 		foreach (int n in neighbourSamples)
 		{
-			if (visited[n])
+			if (visitedAsNeighbour[n])
 			{
-				visited[n] = false;
+				visitedAsNeighbour[n] = false;
 				switch (getKind(n))
 				{
 					case Kinds.BTH_A:
@@ -854,6 +894,9 @@ public class LifeSim : MonoBehaviour
 
 	private void parametersUpdate()
     {
+		for (int i = 0; i < nbrOfCells * nbrOfCells * nbrOfCells; i++)
+			visited[i] = false;
+
 		deltaPop =(int) (population * (lambda * (1 - population /(double) (nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
 		alpha = (deltaPop - birthDead) / (double)(sustainDead + deathzoneDead);
 		if (alpha < 0)
