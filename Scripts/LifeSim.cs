@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-using UnityEngine.Experimental.VFX;
+//using UnityEngine.Experimental.VFX;
 using UnityEngine.VFX;
 
 public enum Kinds
@@ -52,8 +52,10 @@ public class LifeSim : MonoBehaviour
 
 	// Lotka-Volterra 
 	public double lambda = 3.2;
+	public double passiveControl = 1.2; //Always >= 1 
 	private int deltaPop;
 	private double pAdd, pMinus;
+	private double alpha, beta;
 
 	private int birthAlive = 0;
 	private int birthDead = 0;
@@ -105,7 +107,23 @@ public class LifeSim : MonoBehaviour
 			this.translateRule();
 
 		if (step % popRefreshRate == 0)
+        {
 			this.parametersUpdate();
+			UnityEngine.Debug.Log(String.Format("Delta Pop : {0}", this.deltaPop));
+
+			UnityEngine.Debug.Log(String.Format("pAdd : {0}", this.pAdd));
+
+			UnityEngine.Debug.Log(String.Format("Birth Dead : {0}", this.birthDead));
+			UnityEngine.Debug.Log(String.Format("Sustain Dead : {0}", this.sustainDead));
+			UnityEngine.Debug.Log(String.Format("Deathzone Dead : {0}", this.deathzoneDead));
+			
+			UnityEngine.Debug.Log(String.Format("pMinus: {0}", this.pMinus));
+
+			UnityEngine.Debug.Log(String.Format("Birth Alive : {0}", this.birthAlive));
+			UnityEngine.Debug.Log(String.Format("Sustain Alive : {0}", this.sustainAlive));
+			UnityEngine.Debug.Log(String.Format("Deathzone Alive : {0}", this.deathzoneAlive));
+		}
+			
 
 		if (step % stepInterval == 0)
 		{
@@ -116,8 +134,9 @@ public class LifeSim : MonoBehaviour
 
 			// Probabilistic method
 			this.sampleUpdate();
+			UnityEngine.Debug.Log(String.Format("Population : {0}", this.population));
+
 		}
-		
 		this.UpdatesForEachFrame();
 	}
 	
@@ -190,7 +209,7 @@ public class LifeSim : MonoBehaviour
                 }
             }
         }
-
+		
 		this.oldRuleKey = (string) this.ruleKey.Clone();
 		this.translateRule();
 		this.recountKinds();
@@ -466,7 +485,7 @@ public class LifeSim : MonoBehaviour
 	{
 		// Update visual scale for correspondance between real position and automata [0,1] coordinate system
 		// Note: there is also a position XYZ offset handled directly with a VFX Parameter Binder component on the VFX GameObject
-		VFX.SetFloat("visualScale", visualScale);
+		VFX.SetFloat("visualScale", this.visualScale);
 	}
 	
 	private int[][] getIndexesForCubeShape(int x, int y, int z, int cubeSize)
@@ -554,7 +573,7 @@ public class LifeSim : MonoBehaviour
     {
 		return x + y * nbrOfCells + z * nbrOfCells * nbrOfCells;
 	}
-
+	
 	private int[] decode(int c)
     {
 		int[] coords = new int[3];
@@ -573,11 +592,26 @@ public class LifeSim : MonoBehaviour
             {
 				for(int k = -1; k<=1; k++)
                 {
-					output.Add(encode(
-						((x+i)%nbrOfCells+nbrOfCells)%nbrOfCells,
+					if (neighbour == Moore)
+                    {
+						output.Add(encode(
+						((x + i) % nbrOfCells + nbrOfCells) % nbrOfCells,
 						((y + j) % nbrOfCells + nbrOfCells) % nbrOfCells,
 						((z + k) % nbrOfCells + nbrOfCells) % nbrOfCells
 						));
+					}
+                    else
+                    {
+						if(i == 0 || j == 0 || k == 0)
+                        {
+							output.Add(encode(
+							((x + i) % nbrOfCells + nbrOfCells) % nbrOfCells,
+							((y + j) % nbrOfCells + nbrOfCells) % nbrOfCells,
+							((z + k) % nbrOfCells + nbrOfCells) % nbrOfCells
+							));
+						}
+                    }
+					
                 }
             }
         }
@@ -647,11 +681,11 @@ public class LifeSim : MonoBehaviour
 		deathzoneAlive = 0;
 		deathzoneDead = 0;
 
-		for(int i = 0; i<= nbrOfCells; i++)
+		for(int i = 0; i< nbrOfCells; i++)
         {
-			for(int j = 0; j<= nbrOfCells; j++)
+			for(int j = 0; j< nbrOfCells; j++)
             {
-				for(int k = 0; k<= nbrOfCells; k++)
+				for(int k = 0; k< nbrOfCells; k++)
                 {
 					switch (getKind(i, j, k))
                     {
@@ -776,8 +810,14 @@ public class LifeSim : MonoBehaviour
 
 			cellGrid[coords[0], coords[1], coords[2]].changeStatus((byte)statesEnum.Current);
 
+			byte newCellStatus = cellGrid[coords[0], coords[1], coords[2]].getStatus();
+			int newCellLifespan = cellGrid[coords[0], coords[1], coords[2]].getLifespan();
+
+			statusTexture.SetPixel(coords[0] + nbrOfCells * coords[1], coords[2], new Color(newCellStatus, newCellLifespan, 0, 0));
+
 		} while (cellsEnum.MoveNext());
 
+		statusTexture.Apply();
 
 		//Actualize kinds cardinals
 		foreach (int n in neighbourSamples)
@@ -814,9 +854,16 @@ public class LifeSim : MonoBehaviour
 
 	private void parametersUpdate()
     {
-		deltaPop =(int) (population * (lambda * (1 - population / (nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
-		pAdd = (deltaPop - 0.5 * (deathzoneDead + sustainDead)) / (birthDead - 0.5 * (deathzoneDead + sustainDead));
-		pMinus = (-deltaPop - 0.5 * (sustainAlive + birthAlive)) / (deathzoneAlive - 0.5 * (sustainAlive + birthAlive));
+		deltaPop =(int) (population * (lambda * (1 - population /(double) (nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
+		alpha = (deltaPop - birthDead) / (double)(sustainDead + deathzoneDead);
+		if (alpha < 0)
+			alpha = 0;
+		pAdd = deltaPop / (birthDead + passiveControl*alpha * (sustainDead + deathzoneDead));
+
+		beta = (-deltaPop - deathzoneAlive) / (double)(sustainAlive + birthAlive);
+		if (beta < 0)
+			beta = 0;
+		pMinus = -deltaPop / (deathzoneAlive + passiveControl*beta * (sustainAlive + birthAlive));
     }
 
 }
