@@ -1,12 +1,11 @@
-
 using System.Runtime.InteropServices;
+using UnityEngine;
 
 class Cell
 {
-	public static int lifeRange = 50;
 	private byte status;
 	private int xNbr, yNbr, zNbr;
-	private int lifespan;
+	private int birthdate;
 
 	//Accesseurs et mutateurs
 	public Cell(int xNbr, int yNbr, int zNbr, byte status)
@@ -15,7 +14,7 @@ class Cell
 		this.yNbr = yNbr;
 		this.zNbr = zNbr;
 		this.status = status;
-		this.lifespan = 0;
+		this.birthdate = -1; // -1 means not born yet
 	}
 
 	public byte getStatus()
@@ -30,38 +29,32 @@ class Cell
 
 		if(past_status == 0 && this.status > 0)
         {
-			this.resetLifespan();
+			this.resetBirthdate();
         }
 		else if(past_status > 0 && this.status == 0)
         {
-			this.resetLifespan();
+			this.resetBirthdate();
         }
 		else if(past_status > 0 && this.status > 0)
         {
-			this.incrLifespan();
+			// Do nada (leave frameTime as it is)
         }
 	}
 
-	public int getLifespan()
+	public int getBirthdate()
 	{
-		return lifespan;
+		return birthdate;
 	}
 
-	public void incrLifespan()
-    {
-		this.lifespan++;
-		if (this.lifespan > Cell.lifeRange)
-			this.lifespan = Cell.lifeRange;
-    }
 
-	public void resetLifespan()
+	public void resetBirthdate()
 	{
-		this.lifespan = 0;
+		this.birthdate = Time.frameCount;
 	}
 	
 	public Cell Clone()
 	{
-		return new Cell(this.xNbr,this.yNbr,this.zNbr,this.status);
+		return new Cell(this.xNbr, this.yNbr, this.zNbr, this.status);
 	}
 
 }

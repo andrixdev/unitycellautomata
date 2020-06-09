@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-//using UnityEngine.Experimental.VFX;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
+//using UnityEngine.VFX;
 
 public enum Kinds
 {
@@ -85,7 +85,7 @@ public class LifeSim : MonoBehaviour
 
 	//Initial conditions 
 	public double spawnRate = 0.05;
-	public int lifeRange = 50;
+	private int frameCountTime;
 	public bool fillInit = false;
 	public bool centerInit = false;
 
@@ -107,9 +107,13 @@ public class LifeSim : MonoBehaviour
 	// MonoBehaviour Start() called once
 	public void Start()
 	{
+		frameCountTime = Time.frameCount;
+		
 		this.StartAutomaton();
 		this.StartVisualsInjection();
+		
 		UnityEngine.Debug.Log(this.ruleKey);
+		
 		System.IO.File.WriteAllText(log_addr, "Log\nRule key : " + this.ruleKey +"\nSize : " + nbrOfCells* nbrOfCells* nbrOfCells +"\nLambda : " + lambda + "\n");
 		System.IO.File.WriteAllText(data_addr, "step , population , deltap\n");
 		log_file = new System.IO.StreamWriter(log_addr, true);
@@ -119,8 +123,10 @@ public class LifeSim : MonoBehaviour
 	// MonoBehaviour Update() called each frame
 	public void Update()
 	{
-		// Update step (quick&dirty way)
+		// Update step
 		step++;
+		frameCountTime = Time.frameCount;
+		
 		if (!this.oldRuleKey.Equals(this.ruleKey))
 			this.translateRule();
 		
@@ -159,6 +165,7 @@ public class LifeSim : MonoBehaviour
 			// Probabilistic method
 			this.sampleUpdate();
 		}
+		
 		this.UpdatesForEachFrame();
 	}
 	
@@ -171,7 +178,6 @@ public class LifeSim : MonoBehaviour
 			this.rule[i] = new byte[2];
         }
 
-		Cell.lifeRange = this.lifeRange;
 		visited = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
 		visitedAsNeighbour = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
 		pos = new double[3];
@@ -251,7 +257,8 @@ public class LifeSim : MonoBehaviour
 		VFX = (VisualEffect) GetComponent<VisualEffect>();
 		VFX.SetTexture("PositionTexture", positionTexture);
 		VFX.SetTexture("StatusTexture", statusTexture);
-		VFX.SetInt("LifeRange", this.lifeRange);
+		VFX.SetInt("FrameCountTime", frameCountTime);
+		VFX.SetInt("CubeSize", nbrOfCells);
 	}
 	
 	private void translateRule()
@@ -394,7 +401,9 @@ public class LifeSim : MonoBehaviour
 	{
 		// Update visual scale for correspondance between real position and automata [0,1] coordinate system
 		// Note: there is also a position XYZ offset handled directly with a VFX Parameter Binder component on the VFX GameObject
-		VFX.SetFloat("visualScale", this.visualScale);
+		VFX.SetFloat("VisualScale", visualScale);
+		VFX.SetInt("FrameCountTime", frameCountTime);
+		VFX.SetInt("CubeSize", nbrOfCells);
 	}
 	
 	private int[][] getIndexesForCubeShape(int x, int y, int z, int cubeSize)
@@ -462,8 +471,8 @@ public class LifeSim : MonoBehaviour
 					// Status (all deded)
 					
 					// Just to keep in mind that we store status in Color.r component
-					// And lifespan in Color.g
-					Color c2 = new Color(DEAD, 0, 0, 0);
+					// And birthdate in Color.g
+					Color c2 = new Color(DEAD, -1, 0, 0);
 					
 					posColorArray[index] = c1;
 					statusColorArray[index] = c2;
@@ -487,7 +496,7 @@ public class LifeSim : MonoBehaviour
     {
 		int[] coords = new int[3];
 		coords[0] = c % nbrOfCells;
-		coords[1] = (c % (nbrOfCells * nbrOfCells) - coords[0])/nbrOfCells;
+		coords[1] = (c % (nbrOfCells * nbrOfCells) - coords[0]) / nbrOfCells;
 		coords[2] = (c - coords[0] - coords[1] * nbrOfCells) / (nbrOfCells * nbrOfCells);
 		return coords;
     }
@@ -495,11 +504,11 @@ public class LifeSim : MonoBehaviour
 	private List<int> getNeighbourhood(int x, int y, int z)
     {
 		List<int> output = new List<int>();
-		for(int i = -1; i<= 1; i++)
+		for(int i = -1; i <= 1; i++)
         {
-			for(int j = -1; j<=1; j++)
+			for(int j = -1; j <= 1; j++)
             {
-				for(int k = -1; k<=1; k++)
+				for(int k = -1; k <= 1; k++)
                 {
 					if (neighbour == Moore)
                     {
@@ -635,14 +644,11 @@ public class LifeSim : MonoBehaviour
 		recountKinds();
 		for(int i = 0; i < nbrOfCells; i++)
         {
-			for(int j = 0; j<nbrOfCells; j++)
+			for(int j = 0; j < nbrOfCells; j++)
             {
-				for(int k = 0; k<nbrOfCells; k++)
+				for(int k = 0; k < nbrOfCells; k++)
                 {
-					statusTexture.SetPixel(i + nbrOfCells * j, k, new Color(
-											cellGrid[i,j,k].getStatus(), 
-											cellGrid[i,j,k].getLifespan()
-											, 0, 0));
+					statusTexture.SetPixel(i + nbrOfCells * j, k, new Color(cellGrid[i,j,k].getStatus(), cellGrid[i,j,k].getBirthdate(), 0, 0));
 				}
             }
         }
@@ -695,28 +701,32 @@ public class LifeSim : MonoBehaviour
     {
 		samples.Clear();
 		neighbourSamples.Clear();
-		int c;
+		int cellIndex;
 		int t = 0;
-		sampling = (nbrOfCells*nbrOfCells*nbrOfCells) / popRefreshRate;
-        //Semi random - sampling 
-
+		
+		// Making sure we loop enough to reach nbrOfCells³ samples, assuming this corresponds to STATISTICAL democracy...
+		sampling = (nbrOfCells * nbrOfCells * nbrOfCells) / popRefreshRate;
+		
+        // Semi-random sampling 
         while (t < sampling)
         {
-			c = encode((int)(Math.Truncate(pos[0] * nbrOfCells)),
+			cellIndex = encode(
+						(int)(Math.Truncate(pos[0] * nbrOfCells)),
 						(int)(Math.Truncate(pos[1] * nbrOfCells)),
 						(int)(Math.Truncate(pos[2] * nbrOfCells)));
 
-			if (!visited[c])
+			if (!visited[cellIndex])
             {
-				visited[c] = true;
-				samples.Add(c);
-				neighbourSamples.AddRange(getNeighbourhood(c));
+				visited[cellIndex] = true;
+				samples.Add(cellIndex);
+				neighbourSamples.AddRange(getNeighbourhood(cellIndex));
             }
+			
 			this.nextPos();
 			t++;
         }
 		
-		//Removing cells which are going to change neighbourhood
+		// Removing cells which are going to change neighbourhood
 		foreach (int n in neighbourSamples)
         {
             if (!visitedAsNeighbour[n])
@@ -748,7 +758,7 @@ public class LifeSim : MonoBehaviour
             }
         }
 
-		//Build the next state from sample
+		// Build the next state from sample
 		List<byte> tempStates = new List<byte>();
 		int[] coords;
 		if(deltaPop > 0)
@@ -782,8 +792,7 @@ public class LifeSim : MonoBehaviour
 			}
 		}
 		
-
-		//Apply the new state
+		// Apply the new state
 		IEnumerator<int> cellsEnum = samples.GetEnumerator();
 		IEnumerator<byte> statesEnum = tempStates.GetEnumerator();
 
@@ -800,9 +809,9 @@ public class LifeSim : MonoBehaviour
 			cellGrid[coords[0], coords[1], coords[2]].changeStatus((statesEnum.Current));
 
 			byte newCellStatus = cellGrid[coords[0], coords[1], coords[2]].getStatus();
-			int newCellLifespan = cellGrid[coords[0], coords[1], coords[2]].getLifespan();
+			int newCellBirthdate = cellGrid[coords[0], coords[1], coords[2]].getBirthdate();
 
-			statusTexture.SetPixel(coords[0] + nbrOfCells * coords[1], coords[2], new Color(newCellStatus, newCellLifespan, 0, 0));
+			statusTexture.SetPixel(coords[0] + nbrOfCells * coords[1], coords[2], new Color(newCellStatus, newCellBirthdate, 0, 0));
 			statesEnum.MoveNext();
 		} while (cellsEnum.MoveNext());
 
@@ -849,23 +858,27 @@ public class LifeSim : MonoBehaviour
 
 		if (isInsideCube(xx, yy, zz, nbrOfCells))
         {
-			for(int i = -1; i<=1; i++)
+			for(int i = -1; i <= 1; i++)
             {
-				for(int j = -1; j<=1; j++)
+				for(int j = -1; j <= 1; j++)
                 {
-					for(int k = -1; k<=1; k++)
+					for(int k = -1; k <= 1; k++)
                     {
 						cx = ((xx + i) % nbrOfCells + nbrOfCells) % nbrOfCells;
 						cy = ((yy + j) % nbrOfCells + nbrOfCells) % nbrOfCells;
 						cz = ((zz + k) % nbrOfCells + nbrOfCells) % nbrOfCells;
 
-						if (cellGrid[cx, cy, cz].getStatus() != ALIVE)
+						// Force neighbours to ALIVE (but don't forget to count properly)
+						Cell c = cellGrid[cx, cy, cz];
+						if (c.getStatus() != ALIVE)
 						{
 							uncountNeighbourhood(cx, cy, cz);
-							cellGrid[cx, cy, cz].changeStatus(ALIVE);
+							c.changeStatus(ALIVE);
 							population++;
 							addcountNeighbourhood(cx, cy, cz);
-							statusTexture.SetPixel(cx + nbrOfCells * cy, cz, new Color(ALIVE, 0, 0, 0));
+							
+							int newCellBirthdate = c.getBirthdate();
+							statusTexture.SetPixel(cx + nbrOfCells * cy, cz, new Color(ALIVE, newCellBirthdate, 0, 0));
 						}
 					}
                 }
