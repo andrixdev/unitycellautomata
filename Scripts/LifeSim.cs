@@ -50,7 +50,6 @@ public class LifeSim : MonoBehaviour
 
 	// Lotka-Volterra 
 	public double lambda = 0.2;
-	public double passiveControl = 1.2; //Always >= 1 
 	private int deltaPop;
 	private double pAdd, pMinus;
 	private double alpha, beta;
@@ -470,15 +469,21 @@ public class LifeSim : MonoBehaviour
 		int xx = (int) Mathf.Floor(localPos.z * n);
 		int yy = (int) Mathf.Floor(localPos.y * n);
 		int zz = (int) Mathf.Floor(localPos.x * n);
-		
+
 		//UnityEngine.Debug.Log(xx);
 		//UnityEngine.Debug.Log(yy);
 		//UnityEngine.Debug.Log(zz);
-		
-		int[][] indexes = getIndexesForCubeShape(xx, yy, zz, this.nbrOfCells);
-		for (int ii = 0; ii < indexes.Length; ii++) {
-			this.nextStatusGrid[indexes[ii][0], indexes[ii][1], indexes[ii][2]] = ALIVE;
+
+		if (isInsideCube(xx, yy, zz, nbrOfCells))
+        {
+			int[] coords;
+			foreach (int k in getNeighbourhood(xx, yy, zz))
+			{
+				coords = decode(k);
+				this.nextStatusGrid[coords[0], coords[1], coords[2]] = ALIVE;
+			}
 		}
+		
 		
 	}
 
@@ -871,8 +876,6 @@ public class LifeSim : MonoBehaviour
 			statesEnum.MoveNext();
 		} while (cellsEnum.MoveNext());
 
-		statusTexture.Apply();
-
 		//Actualize kinds cardinals
 		foreach (int n in neighbourSamples)
 		{
@@ -904,6 +907,43 @@ public class LifeSim : MonoBehaviour
 				}
 			}
 		}
+
+		// Check for injector presence within the cube volume (0.5³ offset in VFX for centered scale)
+		Vector3 localPos = 0.5f * Vector3.one + 1 / visualScale * interactor.transform.position;
+
+		int xx = (int)Mathf.Floor(localPos.x * this.nbrOfCells);
+		int yy = (int)Mathf.Floor(localPos.y * this.nbrOfCells);
+		int zz = (int)Mathf.Floor(localPos.z * this.nbrOfCells);
+
+		int cx, cy, cz;
+
+		if (isInsideCube(xx, yy, zz, nbrOfCells))
+        {
+			for(int i = -1; i<=1; i++)
+            {
+				for(int j = -1; j<=1; j++)
+                {
+					for(int k = -1; k<=1; k++)
+                    {
+						cx = ((xx + i) % nbrOfCells + nbrOfCells) % nbrOfCells;
+						cy = ((yy + j) % nbrOfCells + nbrOfCells) % nbrOfCells;
+						cz = ((zz + k) % nbrOfCells + nbrOfCells) % nbrOfCells;
+
+						if (cellGrid[cx, cy, cz].getStatus() != ALIVE)
+						{
+							uncountNeighbourhood(cx, cy, cz);
+							cellGrid[cx, cy, cz].changeStatus(ALIVE);
+							population++;
+							addcountNeighbourhood(cx, cy, cz);
+							statusTexture.SetPixel(cx + nbrOfCells * cy, cz, new Color(ALIVE, 0, 0, 0));
+						}
+					}
+                }
+            }
+			
+		}
+
+		statusTexture.Apply();
 	}
 
 	private void parametersUpdate()
@@ -915,12 +955,72 @@ public class LifeSim : MonoBehaviour
 		alpha = (deltaPop - birthDead) / (double)(sustainDead + deathzoneDead);
 		if (alpha < 0)
 			alpha = 0;
-		pAdd = deltaPop / (birthDead + passiveControl*alpha * (sustainDead + deathzoneDead));
+		pAdd = deltaPop / (birthDead + alpha * (sustainDead + deathzoneDead));
 
 		beta = (-deltaPop - deathzoneAlive) / (double)(sustainAlive + birthAlive);
 		if (beta < 0)
 			beta = 0;
-		pMinus = -deltaPop / (deathzoneAlive + passiveControl*beta * (sustainAlive + birthAlive));
+		pMinus = -deltaPop / (deathzoneAlive + beta * (sustainAlive + birthAlive));
     }
+
+	private void uncountNeighbourhood(int x, int y, int z)
+    {
+		foreach(int n in getNeighbourhood(x, y, z))
+        {
+			switch (getKind(n))
+			{
+				case Kinds.BTH_A:
+					birthAlive--;
+					break;
+				case Kinds.BTH_D:
+					birthDead--;
+					break;
+				case Kinds.DTH_A:
+					deathzoneAlive--;
+					break;
+				case Kinds.DTH_D:
+					deathzoneDead--;
+					break;
+				case Kinds.STN_A:
+					sustainAlive--;
+					break;
+				case Kinds.STN_D:
+					sustainDead--;
+					break;
+				default:
+					break;
+			}
+		}
+    }
+
+	private void addcountNeighbourhood(int x, int y, int z)
+	{
+		foreach (int n in getNeighbourhood(x, y, z))
+		{
+			switch (getKind(n))
+			{
+				case Kinds.BTH_A:
+					birthAlive++;
+					break;
+				case Kinds.BTH_D:
+					birthDead++;
+					break;
+				case Kinds.DTH_A:
+					deathzoneAlive++;
+					break;
+				case Kinds.DTH_D:
+					deathzoneDead++;
+					break;
+				case Kinds.STN_A:
+					sustainAlive++;
+					break;
+				case Kinds.STN_D:
+					sustainDead++;
+					break;
+				default:
+					break;
+			}
+		}
+	}
 
 }
