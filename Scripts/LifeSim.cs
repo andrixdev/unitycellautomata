@@ -603,7 +603,7 @@ public class LifeSim : MonoBehaviour
     {
 		int[] coords = new int[3];
 		coords[0] = c % nbrOfCells;
-		coords[1] = (c % nbrOfCells * nbrOfCells - coords[0])/nbrOfCells;
+		coords[1] = (c % (nbrOfCells * nbrOfCells) - coords[0])/nbrOfCells;
 		coords[2] = (c - coords[0] - coords[1] * nbrOfCells) / (nbrOfCells * nbrOfCells);
 		return coords;
     }
