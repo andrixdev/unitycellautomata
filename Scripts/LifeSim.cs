@@ -29,7 +29,6 @@ public class LifeSim : MonoBehaviour
 
 	public int nbrOfCells = 20;
 	private float cellLength = 1.0f;// Not used atm
-	public bool torusShape;
 
 	// Containers
 	private Cell[,,] cellGrid;
@@ -76,8 +75,8 @@ public class LifeSim : MonoBehaviour
 	private System.Random rand = new System.Random();
 
 	//Initial conditions 
-	public double mortality = 0.0;
-	public double natality = 0.0;
+	private double mortality = 0.0; //Redondant avec l'aspect proba 
+	private double natality = 0.0;  //Redondant avec l'aspect proba
 	public double spawnRate = 0.05;
 	public int lifeRange = 50;
 	public bool fillInit = false;
@@ -399,22 +398,11 @@ public class LifeSim : MonoBehaviour
 			{
 				for (int k = -1; k <= 1; k++)
 				{
-					if (this.torusShape)
-					{
-						if (!(i == 0 && j == 0 && k == 0))
-						{ //Plusieurs opérations modulo pour assurer un résultat positif
-							count += this.cellGrid[((x + i) % this.nbrOfCells + this.nbrOfCells) % nbrOfCells,((y + j) % this.nbrOfCells + this.nbrOfCells) % nbrOfCells,((z + k) % this.nbrOfCells + this.nbrOfCells) % nbrOfCells].getStatus();
-						}
-					}
-					else
-					{
-						if ((x + i >= 0 && x + i < this.nbrOfCells) && (y + j >= 0 && y + j < this.nbrOfCells) && (z + k >= 0 && z + k < this.nbrOfCells)
+					if ((x + i >= 0 && x + i < this.nbrOfCells) && (y + j >= 0 && y + j < this.nbrOfCells) && (z + k >= 0 && z + k < this.nbrOfCells)
 							&& !(i == 0 && j == 0 && k == 0))
 						{
 							count += this.cellGrid[x + i,y + j,z + k].getStatus();
 						}
-					}
-
 				}
 			}
 		}
@@ -426,30 +414,18 @@ public class LifeSim : MonoBehaviour
 		int count = 0;
 		count += this.cellGrid[(x + 1) % this.nbrOfCells,y,z].getStatus();
 		if (x == 0)
-		{
-			if (this.torusShape)
-			{
-				count += this.cellGrid[this.nbrOfCells - 1,y,z].getStatus();
-			}
-		}
+			count += this.cellGrid[this.nbrOfCells - 1,y,z].getStatus();
+			
 
 		count += this.cellGrid[x,(y + 1) % this.nbrOfCells,z].getStatus();
 		if (y == 0)
-		{
-			if (this.torusShape)
-			{
-				count += this.cellGrid[x,this.nbrOfCells - 1,z].getStatus();
-			}
-		}
+			count += this.cellGrid[x,this.nbrOfCells - 1,z].getStatus();
+			
 
 		count += this.cellGrid[x,y,(z + 1) % this.nbrOfCells].getStatus();
 		if (z == 0)
-		{
-			if (this.torusShape)
-			{
-				count += this.cellGrid[x,y,this.nbrOfCells - 1].getStatus();
-			}
-		}
+			count += this.cellGrid[x,y,this.nbrOfCells - 1].getStatus();
+
 		return count;
 	}
 
