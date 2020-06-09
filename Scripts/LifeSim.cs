@@ -71,6 +71,8 @@ public class LifeSim : MonoBehaviour
 	private List<int> samples = new List<int>();
 	private List<int> neighbourSamples = new List<int>();
 
+	public bool pseudoRandom = false;
+	public int sampling = 20 * 20;
 	private System.Random rand = new System.Random();
 
 	//Initial conditions 
@@ -89,13 +91,14 @@ public class LifeSim : MonoBehaviour
 	// Interaction with outter world
 	public Transform interactor;
 	public float visualScale = 5;
-	
+
 	// MonoBehaviour Start() called once
 	public void Start()
 	{
 		this.StartAutomaton();
 		this.StartVisualsInjection();
 		UnityEngine.Debug.Log(this.ruleKey);
+		//file.WriteLine("Rule Key : " + this.ruleKey + "\n");
 	}
 	
 	// MonoBehaviour Update() called each frame
@@ -108,23 +111,30 @@ public class LifeSim : MonoBehaviour
 		
 		if (step % (popRefreshRate*stepInterval) == 0)
         {
+			//file.WriteLine(String.Format("\n------ Step {0} -----", step));
 			UnityEngine.Debug.Log(String.Format("------ Step {0} -----", step));
 
 			this.parametersUpdate();
+
+			//file.WriteLine(String.Format("Pop : {0}", this.population));
 			UnityEngine.Debug.Log(String.Format("Pop : {0}", this.population));
+
+			//file.WriteLine(String.Format("Delta Pop : {0}", this.deltaPop));
 			UnityEngine.Debug.Log(String.Format("Delta Pop : {0}", this.deltaPop));
 
-			UnityEngine.Debug.Log(String.Format("pAdd : {0}", this.pAdd));
+			/*
+			file.WriteLine(String.Format("\npAdd : {0}", this.pAdd));
 
-			UnityEngine.Debug.Log(String.Format("Birth Dead : {0}", this.birthDead));
-			UnityEngine.Debug.Log(String.Format("Sustain Dead : {0}", this.sustainDead));
-			UnityEngine.Debug.Log(String.Format("Deathzone Dead : {0}", this.deathzoneDead));
+			file.WriteLine(String.Format("Birth Dead : {0}", this.birthDead));
+			file.WriteLine(String.Format("Sustain Dead : {0}", this.sustainDead));
+			file.WriteLine(String.Format("Deathzone Dead : {0}", this.deathzoneDead));
 			
-			UnityEngine.Debug.Log(String.Format("pMinus: {0}", this.pMinus));
+			file.WriteLine(String.Format("\npMinus: {0}", this.pMinus));
 
-			UnityEngine.Debug.Log(String.Format("Birth Alive : {0}", this.birthAlive));
-			UnityEngine.Debug.Log(String.Format("Sustain Alive : {0}", this.sustainAlive));
-			UnityEngine.Debug.Log(String.Format("Deathzone Alive : {0}", this.deathzoneAlive));
+			file.WriteLine(String.Format("Birth Alive : {0}", this.birthAlive));
+			file.WriteLine(String.Format("Sustain Alive : {0}", this.sustainAlive));
+			file.WriteLine(String.Format("Deathzone Alive : {0}", this.deathzoneAlive));
+			*/
 
 			/*
 			UnityEngine.Debug.Log(String.Format("Sanity check (effective partition) : {0} == {1}",
@@ -136,7 +146,7 @@ public class LifeSim : MonoBehaviour
 									this.population));
 			*/
 		}
-			
+
 
 		if (step % stepInterval == 0)
 		{
@@ -555,12 +565,11 @@ public class LifeSim : MonoBehaviour
 		int index;
 
 		// Single loop to inject data array values in textures in one shot
-		//float r = 1.0f / (size - 1.0f);
-		float r = 1.0f;
+		float r = 1.0f / (size - 1.0f);
         for (int x = 0; x < size; x++) {
 			for (int y = 0; y < size; y++) {
 				for (int z = 0; z < size; z++) {
-					index = z + y * size + x * size * size;
+					index = encode(x,y,z);
 					
 					// Shape color information for textures1
 					// Position
@@ -762,19 +771,39 @@ public class LifeSim : MonoBehaviour
 		neighbourSamples.Clear();
 		int c;
 		int failsafe;
+
 		//Semi random - sampling 
-		for (int i = 0; i < nbrOfCells*nbrOfCells; i++)
+		if (pseudoRandom)
         {
-			failsafe = 0;
-			do
+			for (int i = 0; i < nbrOfCells * nbrOfCells; i++)
 			{
-				failsafe++;
-				c = rand.Next(i * nbrOfCells,  (i+1) * nbrOfCells);
-			} while (visited[c] && failsafe < nbrOfCells);
-			visited[c] = true;
-			samples.Add(c);
-			neighbourSamples.AddRange(getNeighbourhood(c));
+				failsafe = 0;
+				do
+				{
+					failsafe++;
+					c = rand.Next(i * nbrOfCells, (i + 1) * nbrOfCells);
+				} while (visited[c] && failsafe < nbrOfCells);
+				visited[c] = true;
+				samples.Add(c);
+				neighbourSamples.AddRange(getNeighbourhood(c));
+			}
 		}
+        else
+        {
+			for(int i = 0; i<sampling; i++)
+            {
+				failsafe = 0;
+				do
+				{
+					failsafe++;
+					c = rand.Next(0,nbrOfCells*nbrOfCells*nbrOfCells);
+				} while (visited[c] && failsafe < nbrOfCells);
+				visited[c] = true;
+				samples.Add(c);
+				neighbourSamples.AddRange(getNeighbourhood(c));
+			}
+        }
+		
 		
 		//Removing cells which are going to change neighbourhood
 		foreach (int n in neighbourSamples)
@@ -819,6 +848,10 @@ public class LifeSim : MonoBehaviour
 				if(cellGrid[coords[0],coords[1],coords[2]].getStatus() == DEAD)
                 {
 					tempStates.Add(UnityEngine.Random.value < pAdd ? ALIVE : DEAD);
+                }
+                else
+                {
+					tempStates.Add(ALIVE);
 				}
             }
         }
@@ -830,6 +863,10 @@ public class LifeSim : MonoBehaviour
 				if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == ALIVE)
 				{
 					tempStates.Add(UnityEngine.Random.value < pMinus ? DEAD : ALIVE);
+                }
+                else
+                {
+					tempStates.Add(DEAD);
 				}
 			}
 		}
@@ -845,6 +882,7 @@ public class LifeSim : MonoBehaviour
 
 			if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == ALIVE && statesEnum.Current == DEAD)
 				population--;
+				
 			else if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == DEAD && statesEnum.Current == ALIVE)
 				population++;
 
