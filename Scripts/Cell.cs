@@ -7,22 +7,15 @@ class Cell
 	private byte status;
 	private int xNbr, yNbr, zNbr;
 	private int lifespan;
-	private double mortality;
-	private double natality;
-	public readonly double cellLength;
 
 	//Accesseurs et mutateurs
-	public Cell(int xNbr, int yNbr, int zNbr, double cellLength, byte status, double mortality, double natality)
+	public Cell(int xNbr, int yNbr, int zNbr, byte status)
 	{
 		this.xNbr = xNbr;
 		this.yNbr = yNbr;
 		this.zNbr = zNbr;
 		this.status = status;
 		this.lifespan = 0;
-		this.mortality = mortality;
-		this.natality = natality;
-		this.cellLength = cellLength;
-		//this.transform.position = Vector3.right*(xNbr*cellLength + cellLength/2f) + Vector3.up*(yNbr*cellLength + cellLength/2) + Vector3.forward*(zNbr*cellLength + cellLength/2);
 	}
 
 	public byte getStatus()
@@ -34,11 +27,6 @@ class Cell
 	{
 		byte past_status = this.status;
 		this.status = new_status;
-
-		if (new_status > 0 && UnityEngine.Random.value < this.mortality)
-			this.status = 0;
-		if (new_status == 0 && UnityEngine.Random.value < this.natality)
-			this.status = 1;
 
 		if(past_status == 0 && this.status > 0)
         {
@@ -73,7 +61,7 @@ class Cell
 	
 	public Cell Clone()
 	{
-		return new Cell(this.xNbr,this.yNbr,this.zNbr,this.cellLength,this.status,this.mortality,this.natality);
+		return new Cell(this.xNbr,this.yNbr,this.zNbr,this.status);
 	}
 
 }

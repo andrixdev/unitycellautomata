@@ -27,16 +27,15 @@ public class LifeSim : MonoBehaviour
 	private const byte DEAD = 0;
 	private const byte ALIVE = 1;
 
-	public int nbrOfCells = 20;
-	private float cellLength = 1.0f;// Not used atm
+	public int nbrOfCells = 30;
 
 	// Containers
 	private Cell[,,] cellGrid;
 	public byte[,,] nextStatusGrid;
 
 	private int step = 0;
-	public int stepInterval = 20;
-	public int popRefreshRate = 2;
+	public int stepInterval = 1;
+	public int popRefreshRate = 200;
 	//private float timer;
 	//public float pauseDuration;
 
@@ -48,11 +47,14 @@ public class LifeSim : MonoBehaviour
 	private byte neighbour;
 	private byte[][] rule;
 
-	// Lotka-Volterra 
-	public double lambda = 0.2;
+	// Lotka-Volterra model for cellular automata
+	public double lambda = 2.3;
 	private int deltaPop;
 	private double pAdd, pMinus;
 	private double alpha, beta;
+	private double p, deltap;
+
+	// Partition of cells per neighbourhood and status
 
 	private int birthAlive = 0;
 	private int birthDead = 0;
@@ -63,19 +65,25 @@ public class LifeSim : MonoBehaviour
 	private int deathzoneAlive = 0;
 	private int deathzoneDead = 0;
 
+	// Concerns for sampling
+
 	private bool[] visited;
 	private bool[] visitedAsNeighbour;
 
 	private List<int> samples = new List<int>();
 	private List<int> neighbourSamples = new List<int>();
 
-	public bool pseudoRandom = false;
-	public int sampling = 20 * 20;
-	private System.Random rand = new System.Random();
+	private int sampling;
+
+	// For the quasirandom sequence
+	private double[] pos;
+	private static double g = 1.22074408460575947536;
+	private static double a0 = 1 / g;
+	private static double a1 = 1 / (g * g);
+	private static double a2 = 1 / (g * g * g);
+	
 
 	//Initial conditions 
-	private double mortality = 0.0; //Redondant avec l'aspect proba 
-	private double natality = 0.0;  //Redondant avec l'aspect proba
 	public double spawnRate = 0.05;
 	public int lifeRange = 50;
 	public bool fillInit = false;
@@ -90,13 +98,22 @@ public class LifeSim : MonoBehaviour
 	public Transform interactor;
 	public float visualScale = 5;
 
+	// Trace
+	private string log_addr = System.IO.Directory.GetCurrentDirectory() + "/log.txt";
+	private string data_addr = System.IO.Directory.GetCurrentDirectory() + "/log.csv";
+	private System.IO.StreamWriter log_file;
+	private System.IO.StreamWriter data_file;
+
 	// MonoBehaviour Start() called once
 	public void Start()
 	{
 		this.StartAutomaton();
 		this.StartVisualsInjection();
 		UnityEngine.Debug.Log(this.ruleKey);
-		//file.WriteLine("Rule Key : " + this.ruleKey + "\n");
+		System.IO.File.WriteAllText(log_addr, "Log\nRule key : " + this.ruleKey +"\nSize : " + nbrOfCells* nbrOfCells* nbrOfCells +"\nLambda : " + lambda + "\n");
+		System.IO.File.WriteAllText(data_addr, "step , population , deltap\n");
+		log_file = new System.IO.StreamWriter(log_addr, true);
+		data_file = new System.IO.StreamWriter(data_addr, true);
 	}
 	
 	// MonoBehaviour Update() called each frame
@@ -109,54 +126,38 @@ public class LifeSim : MonoBehaviour
 		
 		if (step % (popRefreshRate*stepInterval) == 0)
         {
-			//file.WriteLine(String.Format("\n------ Step {0} -----", step));
+			log_file.WriteLine(String.Format("\n------ Step {0} -----", step));
 			UnityEngine.Debug.Log(String.Format("------ Step {0} -----", step));
 
 			this.parametersUpdate();
 
-			//file.WriteLine(String.Format("Pop : {0}", this.population));
+			log_file.WriteLine(String.Format("Pop : {0}", this.population));
 			UnityEngine.Debug.Log(String.Format("Pop : {0}", this.population));
 
-			//file.WriteLine(String.Format("Delta Pop : {0}", this.deltaPop));
+			log_file.WriteLine(String.Format("Delta Pop : {0}", this.deltaPop));
 			UnityEngine.Debug.Log(String.Format("Delta Pop : {0}", this.deltaPop));
 
-			/*
-			file.WriteLine(String.Format("\npAdd : {0}", this.pAdd));
-
-			file.WriteLine(String.Format("Birth Dead : {0}", this.birthDead));
-			file.WriteLine(String.Format("Sustain Dead : {0}", this.sustainDead));
-			file.WriteLine(String.Format("Deathzone Dead : {0}", this.deathzoneDead));
 			
-			file.WriteLine(String.Format("\npMinus: {0}", this.pMinus));
+			log_file.WriteLine(String.Format("\npAdd : {0}", this.pAdd));
 
-			file.WriteLine(String.Format("Birth Alive : {0}", this.birthAlive));
-			file.WriteLine(String.Format("Sustain Alive : {0}", this.sustainAlive));
-			file.WriteLine(String.Format("Deathzone Alive : {0}", this.deathzoneAlive));
-			*/
+			log_file.WriteLine(String.Format("Birth Dead : {0}", this.birthDead));
+			log_file.WriteLine(String.Format("Sustain Dead : {0}", this.sustainDead));
+			log_file.WriteLine(String.Format("Deathzone Dead : {0}", this.deathzoneDead));
+			
+			log_file.WriteLine(String.Format("\npMinus: {0}", this.pMinus));
 
-			/*
-			UnityEngine.Debug.Log(String.Format("Sanity check (effective partition) : {0} == {1}",
-									this.birthAlive+this.birthDead+this.sustainAlive+this.sustainDead+this.deathzoneAlive+this.deathzoneDead,
-									this.nbrOfCells*this.nbrOfCells*this.nbrOfCells));
+			log_file.WriteLine(String.Format("Birth Alive : {0}", this.birthAlive));
+			log_file.WriteLine(String.Format("Sustain Alive : {0}", this.sustainAlive));
+			log_file.WriteLine(String.Format("Deathzone Alive : {0}", this.deathzoneAlive));
 
-			UnityEngine.Debug.Log(String.Format("Sanity check bis (population partition) : {0} == {1}",
-									this.birthAlive+this.sustainAlive+this.deathzoneAlive,
-									this.population));
-			*/
+			data_file.WriteLine(step.ToString() + " , " + p.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + " , " + deltap.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture));
 		}
 
 
 		if (step % stepInterval == 0)
 		{
-			// Update cellGrid array
-			//this.nextStep();
-			//UnityEngine.Debug.Log(this.nextStatusGrid[this.nbrOfCells/2-2, this.nbrOfCells/2+2, this.nbrOfCells/2-3]);
-			//UnityEngine.Debug.Log(String.Format("Population : {0}\n",this.population));
-
 			// Probabilistic method
 			this.sampleUpdate();
-			//this.fullReconstruct();
-
 		}
 		this.UpdatesForEachFrame();
 	}
@@ -173,7 +174,10 @@ public class LifeSim : MonoBehaviour
 		Cell.lifeRange = this.lifeRange;
 		visited = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
 		visitedAsNeighbour = new bool[nbrOfCells * nbrOfCells * nbrOfCells];
-
+		pos = new double[3];
+		pos[0] = 0.5;
+		pos[1] = 0.5;
+		pos[2] = 0.5;
 
 		// Init cellGrid and nextStatusGrid
 		this.cellGrid = new Cell[this.nbrOfCells,this.nbrOfCells,this.nbrOfCells];
@@ -225,7 +229,7 @@ public class LifeSim : MonoBehaviour
 					if (initCellStatus == ALIVE)
 						this.population++;
 
-					this.cellGrid[i,j,k] = new Cell(i, j, k, this.cellLength, initCellStatus,this.mortality,this.natality);
+					this.cellGrid[i,j,k] = new Cell(i, j, k,initCellStatus);
 					
 					// Next status grid initial value
 					this.nextStatusGrid[i,j,k] = initCellStatus;
@@ -248,48 +252,6 @@ public class LifeSim : MonoBehaviour
 		VFX.SetTexture("PositionTexture", positionTexture);
 		VFX.SetTexture("StatusTexture", statusTexture);
 		VFX.SetInt("LifeRange", this.lifeRange);
-	}
-
-	// Update data grid and textures (visuals)
-	private void nextStep()
-	{
-		this.buildNextGrid();
-		int newCellLifespan;
-		byte newCellStatus;
-		byte pastCellStatus;
-		
-		for (int x = 0; x < this.nbrOfCells; x++)
-		{
-			for (int y = 0; y < this.nbrOfCells; y++)
-			{
-				for (int z = 0; z < this.nbrOfCells; z++)
-				{
-					newCellStatus = this.nextStatusGrid[x,y,z];
-					pastCellStatus = this.cellGrid[x, y, z].getStatus();
-					
-					// Update automaton status
-					this.cellGrid[x,y,z].changeStatus(newCellStatus);
-					newCellStatus = this.cellGrid[x, y, z].getStatus();
-
-					if(pastCellStatus == ALIVE && newCellStatus == DEAD)
-                    {
-						this.population--;
-                    }
-					else if(pastCellStatus == DEAD && newCellStatus == ALIVE)
-                    {
-						this.population++;
-                    }
-					
-					// Update status texture (visuals) and lifespan
-					newCellLifespan = this.cellGrid[x,y,z].getLifespan();
-					
-					statusTexture.SetPixel(x + nbrOfCells * y, z, new Color(newCellStatus, newCellLifespan, 0, 0));
-				}
-			}
-		}
-
-		// Update textures
-		statusTexture.Apply();
 	}
 	
 	private void translateRule()
@@ -426,65 +388,6 @@ public class LifeSim : MonoBehaviour
 			count += this.cellGrid[x,y,this.nbrOfCells - 1].getStatus();
 
 		return count;
-	}
-
-	private void buildNextGrid()
-	{
-		byte stat, res;
-		int count;
-		int n = this.nbrOfCells;// Alias
-		
-		for (int x = 0; x < n; x++)
-		{
-			for (int y = 0; y < n; y++)
-			{
-				for (int z = 0; z < n; z++)
-				{
-					stat = this.cellGrid[x, y, z].getStatus();
-					if (this.neighbour == Moore)
-                    {
-						count = this.countMooreNeighbours(x, y, z);
-					}
-					else if (this.neighbour == VNeumann)
-                    {
-						count = this.countVonNeumannNeighbours(x, y, z);
-                    }
-                    else
-                    {
-						count = 0;
-                    }
-					
-					// Apply rule output based on that neighbour count
-					res = this.rule[count][stat];
-
-					this.nextStatusGrid[x, y, z] = res;
-				}
-			}
-		}
-		
-		// Check for injector presence within the cube volume (0.5³ offset in VFX for centered scale)
-		Vector3 localPos = 0.5f * Vector3.one + 1 / visualScale * interactor.transform.position;
-		
-		// NB: swapped coordinates
-		int xx = (int) Mathf.Floor(localPos.z * n);
-		int yy = (int) Mathf.Floor(localPos.y * n);
-		int zz = (int) Mathf.Floor(localPos.x * n);
-
-		//UnityEngine.Debug.Log(xx);
-		//UnityEngine.Debug.Log(yy);
-		//UnityEngine.Debug.Log(zz);
-
-		if (isInsideCube(xx, yy, zz, nbrOfCells))
-        {
-			int[] coords;
-			foreach (int k in getNeighbourhood(xx, yy, zz))
-			{
-				coords = decode(k);
-				this.nextStatusGrid[coords[0], coords[1], coords[2]] = ALIVE;
-			}
-		}
-		
-		
 	}
 
 	private void UpdatesForEachFrame()
@@ -746,45 +649,72 @@ public class LifeSim : MonoBehaviour
 		statusTexture.Apply();
     }
 
+	//Quasirandom sequence R2
+	//Cf http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+
+	private void nextPos()
+    {
+		pos[0] = (pos[0] + a0);
+		if (pos[0] >= 1)
+			pos[0] = pos[0] - Math.Truncate(pos[0]);
+
+		pos[1] = (pos[1] + a1);
+		if (pos[1] >= 1)
+			pos[1] = pos[1] - Math.Truncate(pos[1]);
+
+		pos[2] = (pos[2] + a2);
+		if (pos[2] >= 1)
+			pos[2] = pos[2] - Math.Truncate(pos[2]);
+	}
+
+	private void resetPos()
+    {
+		pos[0] = 0.5;
+		pos[1] = 0.5;
+		pos[2] = 0.5;
+    }
+
+	private double[] nthPos(int n)
+    {
+		double[] output = new double[3];
+		output[0] = (0.5 + a0 * n);
+		output[0] = output[0] - Math.Truncate(output[0]);
+
+		output[1] = (0.5 + a1 * n);
+		output[1] = output[1] - Math.Truncate(output[1]);
+
+		output[2] = (0.5 + a2 * n);
+		output[2] = output[2] - Math.Truncate(output[2]);
+
+		return output;
+	}
+
+	// Sampling to split CPU load
+
 	private void sampleUpdate()
     {
 		samples.Clear();
 		neighbourSamples.Clear();
 		int c;
-		int failsafe;
+		int t = 0;
+		sampling = (nbrOfCells*nbrOfCells*nbrOfCells) / popRefreshRate;
+        //Semi random - sampling 
 
-		//Semi random - sampling 
-		if (pseudoRandom)
+        while (t < sampling)
         {
-			for (int i = 0; i < nbrOfCells * nbrOfCells; i++)
-			{
-				failsafe = 0;
-				do
-				{
-					failsafe++;
-					c = rand.Next(i * nbrOfCells, (i + 1) * nbrOfCells);
-				} while (visited[c] && failsafe < nbrOfCells);
-				visited[c] = true;
-				samples.Add(c);
-				neighbourSamples.AddRange(getNeighbourhood(c));
-			}
-		}
-        else
-        {
-			for(int i = 0; i<sampling; i++)
+			c = encode((int)(Math.Truncate(pos[0] * nbrOfCells)),
+						(int)(Math.Truncate(pos[1] * nbrOfCells)),
+						(int)(Math.Truncate(pos[2] * nbrOfCells)));
+
+			if (!visited[c])
             {
-				failsafe = 0;
-				do
-				{
-					failsafe++;
-					c = rand.Next(0,nbrOfCells*nbrOfCells*nbrOfCells);
-				} while (visited[c] && failsafe < nbrOfCells);
 				visited[c] = true;
 				samples.Add(c);
 				neighbourSamples.AddRange(getNeighbourhood(c));
-			}
+            }
+			this.nextPos();
+			t++;
         }
-		
 		
 		//Removing cells which are going to change neighbourhood
 		foreach (int n in neighbourSamples)
@@ -961,6 +891,9 @@ public class LifeSim : MonoBehaviour
 		if (beta < 0)
 			beta = 0;
 		pMinus = -deltaPop / (deathzoneAlive + beta * (sustainAlive + birthAlive));
+
+		p = population / (double)(nbrOfCells * nbrOfCells * nbrOfCells);
+		deltap = deltaPop / (double)(nbrOfCells * nbrOfCells * nbrOfCells);
     }
 
 	private void uncountNeighbourhood(int x, int y, int z)
