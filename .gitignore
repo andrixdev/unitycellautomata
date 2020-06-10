@@ -5,4 +5,7 @@
 !Scripts/Cell.cs
 !Scripts/LifeSim.cs
 !Scripts/DeterministicLifeSim.cs
+!VFX/StarsVFX.vfx
+!VFX/Star_SubgraphOperator.vfxoperator
+!VFX/GammaCorrection.vfxoperator
 !VFX/CellAutomata.vfx
