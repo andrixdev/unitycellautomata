@@ -655,7 +655,7 @@ public class LifeSim : MonoBehaviour
 		statusTexture.Apply();
     }
 
-	//Quasirandom sequence R2
+	//Quasirandom sequence R3
 	//Cf http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
 
 	private void nextPos()
@@ -864,6 +864,7 @@ public class LifeSim : MonoBehaviour
                 {
 					for(int k = -1; k <= 1; k++)
                     {
+		
 						cx = ((xx + i) % nbrOfCells + nbrOfCells) % nbrOfCells;
 						cy = ((yy + j) % nbrOfCells + nbrOfCells) % nbrOfCells;
 						cz = ((zz + k) % nbrOfCells + nbrOfCells) % nbrOfCells;
