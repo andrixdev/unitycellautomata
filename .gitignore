@@ -8,4 +8,7 @@
 !VFX/StarsVFX.vfx
 !VFX/Star_SubgraphOperator.vfxoperator
 !VFX/GammaCorrection.vfxoperator
+!VFX/StarTempToRGB.vfxoperator
+!VFX/StarTempToRGBGammaCorrection.vfxoperator
+!VFX/LogisticAutomaton.vfxoperator
 !VFX/CellAutomata.vfx

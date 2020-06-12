@@ -54,7 +54,6 @@ VisualEffectResource:
     m_UpdateMode: 0
     m_PreWarmDeltaTime: 0.05
     m_PreWarmStepCount: 0
-    m_InitialEventName: OnPlay
   m_Systems: []
 --- !u!114 &2
 MonoBehaviour:
@@ -97,7 +96,7 @@ MonoBehaviour:
     min: 0
     max: 1
     descendantCount: 0
-  m_GraphVersion: 4
+  m_GraphVersion: 2
   m_saved: 1
   m_SubgraphDependencies: []
   m_CategoryPath: 
@@ -118,9 +117,9 @@ MonoBehaviour:
     position:
       serializedVersion: 2
       x: 4132
-      y: 1101
-      width: 1021
-      height: 622
+      y: 1174
+      width: 1016
+      height: 478
     contents:
     - model: {fileID: 4}
       id: 0
@@ -143,18 +142,15 @@ MonoBehaviour:
     - model: {fileID: 23}
       id: 0
       isStickyNote: 0
-    - model: {fileID: 32}
-      id: 1
-      isStickyNote: 0
   stickyNoteInfos: []
   systemInfos: []
   categories: []
   uiBounds:
     serializedVersion: 2
-    x: 3980
-    y: 1101
-    width: 1387
-    height: 622
+    x: 3991
+    y: 1174
+    width: 1338
+    height: 478
 --- !u!114 &4
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -169,14 +165,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Parent: {fileID: 2}
   m_Children: []
-  m_UIPosition: {x: 4582, y: 1158}
+  m_UIPosition: {x: 4582, y: 1237}
   m_UICollapsed: 0
   m_UISuperCollapsed: 0
   m_InputSlots:
   - {fileID: 5}
   - {fileID: 6}
   m_OutputSlots:
-  - {fileID: 7}
+  - {fileID: 54}
   condition: 4
 --- !u!114 &5
 MonoBehaviour:
@@ -213,8 +209,7 @@ MonoBehaviour:
     - m_Type: 3
       m_Min: -Infinity
       m_Max: Infinity
-      m_Tooltip: Sets the left operand which will be compared to the right operand
-        based on the specified condition.
+      m_Tooltip: The left operand.
       m_Regex: 
       m_RegexMaxLength: 0
   m_Direction: 0
@@ -255,53 +250,11 @@ MonoBehaviour:
     - m_Type: 3
       m_Min: -Infinity
       m_Max: Infinity
-      m_Tooltip: Sets the right operand which will be compared to the left operand
-        based on the specified condition.
+      m_Tooltip: The right operand.
       m_Regex: 
       m_RegexMaxLength: 0
   m_Direction: 0
   m_LinkedSlots: []
---- !u!114 &7
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b4c11ff25089a324daf359f4b0629b33, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Parent: {fileID: 0}
-  m_Children: []
-  m_UIPosition: {x: 0, y: 0}
-  m_UICollapsed: 1
-  m_UISuperCollapsed: 0
-  m_MasterSlot: {fileID: 7}
-  m_MasterData:
-    m_Owner: {fileID: 4}
-    m_Value:
-      m_Type:
-        m_SerializableType: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
-          PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: False
-    m_Space: 2147483647
-  m_Property:
-    name: o
-    m_serializedType:
-      m_SerializableType: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
-        PublicKeyToken=b77a5c561934e089
-    attributes:
-    - m_Type: 3
-      m_Min: -Infinity
-      m_Max: Infinity
-      m_Tooltip: The result of the comparison.
-      m_Regex: 
-      m_RegexMaxLength: 0
-  m_Direction: 1
-  m_LinkedSlots:
-  - {fileID: 28}
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -547,7 +500,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Parent: {fileID: 2}
   m_Children: []
-  m_UIPosition: {x: 4621, y: 1580}
+  m_UIPosition: {x: 4602, y: 1515}
   m_UICollapsed: 0
   m_UISuperCollapsed: 0
   m_InputSlots:
@@ -999,12 +952,12 @@ MonoBehaviour:
     - m_Type: 3
       m_Min: -Infinity
       m_Max: Infinity
-      m_Tooltip: Sets the boolean whose state determines the branch output.
+      m_Tooltip: The predicate
       m_Regex: 
       m_RegexMaxLength: 0
   m_Direction: 0
   m_LinkedSlots:
-  - {fileID: 7}
+  - {fileID: 54}
 --- !u!114 &29
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1151,12 +1104,7 @@ MonoBehaviour:
     linkedSlots:
     - outputSlot: {fileID: 33}
       inputSlot: {fileID: 9}
-    position: {x: 3979.553, y: 1398.8113}
-    expandedSlots: []
-    expanded: 0
-  - m_Id: 1
-    linkedSlots: []
-    position: {x: 4763.0176, y: 1141.3575}
+    position: {x: 3991, y: 1412}
     expandedSlots: []
     expanded: 0
 --- !u!114 &33
@@ -1216,7 +1164,7 @@ MonoBehaviour:
   m_OutputSlots: []
   m_ExposedName: corrected color
   m_Exposed: 0
-  m_Order: 0
+  m_Order: 1
   m_Category: 
   m_Min:
     m_Type:
@@ -1233,7 +1181,7 @@ MonoBehaviour:
     linkedSlots:
     - outputSlot: {fileID: 31}
       inputSlot: {fileID: 53}
-    position: {x: 5199, y: 1411}
+    position: {x: 5171, y: 1402}
     expandedSlots: []
     expanded: 0
 --- !u!114 &53
@@ -1271,3 +1219,44 @@ MonoBehaviour:
   m_Direction: 0
   m_LinkedSlots:
   - {fileID: 31}
+--- !u!114 &54
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4c11ff25089a324daf359f4b0629b33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Parent: {fileID: 0}
+  m_Children: []
+  m_UIPosition: {x: 0, y: 0}
+  m_UICollapsed: 1
+  m_UISuperCollapsed: 0
+  m_MasterSlot: {fileID: 54}
+  m_MasterData:
+    m_Owner: {fileID: 4}
+    m_Value:
+      m_Type:
+        m_SerializableType: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089
+      m_SerializableObject: False
+    m_Space: 2147483647
+  m_Property:
+    name: res
+    m_serializedType:
+      m_SerializableType: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+        PublicKeyToken=b77a5c561934e089
+    attributes:
+    - m_Type: 3
+      m_Min: -Infinity
+      m_Max: Infinity
+      m_Tooltip: The result of the comparison.
+      m_Regex: 
+      m_RegexMaxLength: 0
+  m_Direction: 1
+  m_LinkedSlots:
+  - {fileID: 28}

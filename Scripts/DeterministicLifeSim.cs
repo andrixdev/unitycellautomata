@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-//using UnityEngine.Experimental.VFX;
-using UnityEngine.VFX;
+using UnityEngine.Experimental.VFX;
+//using UnityEngine.VFX;
 
 /*
 public enum Kinds
@@ -83,7 +83,6 @@ public class DeterministicLifeSim : MonoBehaviour
 	private static double a1 = 1 / (g * g);
 	private static double a2 = 1 / (g * g * g);
 	
-
 	//Initial conditions 
 	public double spawnRate = 0.05;
 	private int frameCountTime;
@@ -158,7 +157,6 @@ public class DeterministicLifeSim : MonoBehaviour
 
 			data_file.WriteLine(step.ToString() + " , " + p.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + " , " + deltap.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture));
 		}
-
 
 		if (step % stepInterval == 0)
 		{
@@ -285,7 +283,6 @@ public class DeterministicLifeSim : MonoBehaviour
 
 		for(int i = 0; i < sustains.Length; i++)
         {
-			
 			if (sustains[i].Contains("-"))
             {
 				aRange = sustains[i].Split('-');
@@ -534,6 +531,7 @@ public class DeterministicLifeSim : MonoBehaviour
                 }
             }
         }
+		
 		return output;
     }
 
@@ -866,12 +864,12 @@ public class DeterministicLifeSim : MonoBehaviour
 		for (int i = 0; i < nbrOfCells * nbrOfCells * nbrOfCells; i++)
 			visited[i] = false;
 
-		// Check for injector presence within the cube volume (0.5³ offset in VFX for centered scale)
-		Vector3 localPos = 0.5f * Vector3.one + 1 / visualScale * interactor.transform.position;
+		// Check for injector presence within the cube volume
+		Vector3 localPos = 1 / visualScale * interactor.transform.position;
 
-		int xx = (int)Mathf.Floor(localPos.x * this.nbrOfCells);
-		int yy = (int)Mathf.Floor(localPos.y * this.nbrOfCells);
-		int zz = (int)Mathf.Floor(localPos.z * this.nbrOfCells);
+		int xx = (int) Mathf.Floor(localPos.x * this.nbrOfCells);
+		int yy = (int) Mathf.Floor(localPos.y * this.nbrOfCells);
+		int zz = (int) Mathf.Floor(localPos.z * this.nbrOfCells);
 
 		int cx, cy, cz;
 
@@ -883,7 +881,6 @@ public class DeterministicLifeSim : MonoBehaviour
                 {
 					for(int k = -1; k <= 1; k++)
                     {
-		
 						cx = ((xx + i) % nbrOfCells + nbrOfCells) % nbrOfCells;
 						cy = ((yy + j) % nbrOfCells + nbrOfCells) % nbrOfCells;
 						cz = ((zz + k) % nbrOfCells + nbrOfCells) % nbrOfCells;
@@ -911,7 +908,7 @@ public class DeterministicLifeSim : MonoBehaviour
 
 	private void parametersUpdate()
     {
-		deltaPop =(int) (population * (lambda * (1 - population /(double) (nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
+		deltaPop =(int) (population * (lambda * (1 - population / (double)(nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
 		consigne = population + deltaPop;
 		if (deltaPop >= 0)
         {
