@@ -768,7 +768,15 @@ public class LifeSim : MonoBehaviour
 				coords = decode(n);
 				if(cellGrid[coords[0],coords[1],coords[2]].getStatus() == DEAD)
                 {
-					tempStates.Add(UnityEngine.Random.value < pAdd ? ALIVE : DEAD);
+					if(getKind(coords[0],coords[1],coords[2]) == Kinds.BTH_D)
+                    {
+						tempStates.Add(UnityEngine.Random.value < pAdd ? ALIVE : DEAD);
+					}
+                    else
+                    {
+						tempStates.Add(UnityEngine.Random.value < pAdd*alpha ? ALIVE : DEAD);
+					}
+					
                 }
                 else
                 {
@@ -783,7 +791,15 @@ public class LifeSim : MonoBehaviour
 				coords = decode(n);
 				if (cellGrid[coords[0], coords[1], coords[2]].getStatus() == ALIVE)
 				{
-					tempStates.Add(UnityEngine.Random.value < pMinus ? DEAD : ALIVE);
+					if (getKind(coords[0],coords[1],coords[2]) == Kinds.DTH_A)
+                    {
+						tempStates.Add(UnityEngine.Random.value < pMinus ? DEAD : ALIVE);
+					}
+					else
+                    {
+						tempStates.Add(UnityEngine.Random.value < pMinus*beta ? DEAD : ALIVE);
+					}
+					
                 }
                 else
                 {
