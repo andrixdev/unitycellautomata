@@ -49,7 +49,8 @@ public class DeterministicLifeSim : MonoBehaviour
 	private byte[][] rule;
 
 	// Lotka-Volterra model for cellular automata
-	public double lambda = 2.3;
+	//public double lambda = 2.3;
+	public Transform automatonLambdaGhost;
 	private int deltaPop;
 	private int consigne;
 	private double gamma;
@@ -113,7 +114,7 @@ public class DeterministicLifeSim : MonoBehaviour
 		this.StartVisualsInjection();
 		
 		UnityEngine.Debug.Log(this.ruleKey);
-		
+		float lambda = Mathf.Clamp(automatonLambdaGhost.transform.position.x, 0, 4.0f);
 		System.IO.File.WriteAllText(log_addr, "Log\nRule key : " + this.ruleKey +"\nSize : " + nbrOfCells* nbrOfCells* nbrOfCells +"\nLambda : " + lambda + "\n");
 		System.IO.File.WriteAllText(data_addr, "step , population , deltap\n");
 		log_file = new System.IO.StreamWriter(log_addr, true);
@@ -908,7 +909,8 @@ public class DeterministicLifeSim : MonoBehaviour
 
 	private void parametersUpdate()
     {
-		deltaPop =(int) (population * (lambda * (1 - population / (double)(nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
+		float lambda = Mathf.Clamp(automatonLambdaGhost.transform.position.x, 0, 4.0f);
+		deltaPop = (int) (population * (lambda * (1 - population / (double)(nbrOfCells * nbrOfCells * nbrOfCells)) - 1));
 		consigne = population + deltaPop;
 		if (deltaPop >= 0)
         {
